@@ -370,7 +370,7 @@ Rigidbody:
   serializedVersion: 5
   m_Mass: 1
   m_LinearDamping: 1
-  m_AngularDamping: 2
+  m_AngularDamping: 3
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -401,11 +401,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HoverMovement
   hoverDistance: 4
   hoverForce: 50
-  correctionForce: 2
-  bankForce: 60
-  turnSpeed: 1000
-  accel: 2500
-  decel: -2000
+  correctionForce: 2.5
+  bankForce: 80
+  turnSpeed: 2000
+  accel: 4000
+  decel: -3000
 --- !u!1 &336929639
 GameObject:
   m_ObjectHideFlags: 0
