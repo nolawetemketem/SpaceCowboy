@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using TMPro;
 using UnityEngine;
@@ -12,6 +13,7 @@ public class TimeControl : MonoBehaviour
     {
         stopwatch = new();
         stopwatch.Start();
+        stopwatchText.SetText("00:00.00");
     }
 
     void FixedUpdate()
@@ -23,9 +25,7 @@ public class TimeControl : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (stopwatch.IsRunning) {
-            stopwatch.Stop();
-        }
+        stopwatch.Stop();
     }
 
     void Reset()
@@ -33,4 +33,5 @@ public class TimeControl : MonoBehaviour
         stopwatch.Reset();
         stopwatchText.SetText("00:00.00");
     }
+
 }

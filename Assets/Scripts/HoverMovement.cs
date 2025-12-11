@@ -27,26 +27,27 @@ public class HoverMovement : MonoBehaviour
 
     void Movement()
     {
+        Vector3 horizonForward = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
         //acceleration / deceleration
         if (Keyboard.current.wKey.isPressed)
         {
-            rb.AddForce(accel * Time.deltaTime * transform.forward);
+            rb.AddForce(accel * Time.deltaTime * horizonForward);
         }
         else if (Keyboard.current.sKey.isPressed)
         {
-            rb.AddForce(decel * Time.deltaTime * transform.forward);
+            rb.AddForce(-decel * Time.deltaTime * horizonForward);
         }
         
         //turning
         if (Keyboard.current.aKey.isPressed)
         {
             rb.AddTorque(-turnSpeed * Time.deltaTime * transform.up);
-            rb.AddTorque(bankForce * Time.deltaTime * transform.forward);
+            rb.AddTorque(bankForce * Time.deltaTime * horizonForward);
         }
         else if (Keyboard.current.dKey.isPressed)
         {
             rb.AddTorque(turnSpeed * Time.deltaTime * transform.up);
-            rb.AddTorque(-bankForce * Time.deltaTime * transform.forward);
+            rb.AddTorque(-bankForce * Time.deltaTime * horizonForward);
         }
     }
 
