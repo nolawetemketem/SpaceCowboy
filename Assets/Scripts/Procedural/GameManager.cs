@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using System.Security.AccessControl;
 
+// GameManager orchestrates the core game loop for the procedurally generated endless pod racing game.
 public class GameManager : MonoBehaviour
 {
     [Header("Game Screen")]
@@ -25,6 +26,7 @@ public class GameManager : MonoBehaviour
     bool crashed;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
+    // Includes when game is restarted.
     void Start()
     {  
         Cursor.visible = false;
@@ -43,12 +45,17 @@ public class GameManager : MonoBehaviour
         fighter.SetActive(true);
     }
 
+    // Updates the on-screen timer display in real-time during gameplay.
+
     void FixedUpdate()
     {
         float elapsedSeconds = (float)stopwatch.Elapsed.TotalSeconds % 60;
         int elapsedMinutes = (int)stopwatch.Elapsed.TotalMinutes;
         stopwatchText.SetText(string.Format("{0:00}:{1:00.00}", elapsedMinutes, elapsedSeconds));
     }
+
+
+    // Detects collision with terrain sections. Uses a flag to prevent multiple GameOver triggers.
 
     void OnCollisionEnter(Collision other)
     {
@@ -59,11 +66,14 @@ public class GameManager : MonoBehaviour
     }
 
 
+    // Handles game-over state: pauses gameplay, displays score/performance data, and shows UI for restart options.
     public void GameOver()
     {
         stopwatch.Stop();
         gameUI.SetActive(false);
         fighter.SetActive(false);
+
+        // Display final score combining survival time and peak speed achieved during the run
         scoreText.text = "Time: " + stopwatchText.text + "  Top Speed: " + MoveSection.metersPerSecond + " m/s";
         SectionDestroyer.Stop();
         gameOverUI.SetActive(true);

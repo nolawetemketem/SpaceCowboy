@@ -5,8 +5,11 @@ using UnityEngine;
 using System;
 
 
-// Responsible for spawning terrain sections at runtime. 
-// Initializes a set of starting sections and spawns new oneswhen the player reaches a trigger, creating an endless track effect.
+// Responsible for spawning terrain sections at runtime.
+// Creates an infinite endless-runner track by continuously instantiating new sections as the player advances.
+
+//  Each time the player hits a "Create" trigger, a new section spawns ahead
+// and the game difficulty increases (speed escalation via MoveSection.IncreaseSpeed()).
 
 public class SectionCreator : MonoBehaviour
 {
@@ -20,7 +23,10 @@ public class SectionCreator : MonoBehaviour
     public int numberOfInitialSections = 4;
 
 
-    void Start()  // Spawns the initial set of terrain sections at startup and queues them for later cleanup.
+   // Spawn initial sections spaced evenly along the Z-axis
+    // Each section is positioned apart by section length
+
+    void Start()
     {
         for (int i = 0; i < numberOfInitialSections; i++)
         {
@@ -29,19 +35,20 @@ public class SectionCreator : MonoBehaviour
             GameObject clone = Instantiate(terrainModel, spawnOffset, Quaternion.identity, parent.transform);
             SectionDestroyer.terrainQueue.Enqueue(clone);
         }
-        spawnOffset = new Vector3(494,0, ((numberOfInitialSections - 1) * 700) + 370); // Set offset for future section spawns
+        // Prepare spawn offset for future sections (middle of last section)
+        spawnOffset = new Vector3(494, 0, ((numberOfInitialSections - 1) * 700) + 370);
     }
 
+
     // Detects when a section creation trigger is hit and spawns a new terrain section ahead of the current one.
-    // Also increases movement speed to escalate difficulty.
-    
+    // Also increases movement speed to escalate difficulty
     void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("Create"))      
         {
             GameObject clone = Instantiate(terrainModel, other.transform.position + spawnOffset, Quaternion.identity, parent.transform);
             SectionDestroyer.terrainQueue.Enqueue(clone);  
-            MoveSection.IncreaseSpeed();                   
+            MoveSection.IncreaseSpeed(); // increase speed by 5 m/s 
         }
     }
 }

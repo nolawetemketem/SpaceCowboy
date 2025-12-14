@@ -114,10 +114,10 @@ public class StrafeHoverMovement : MonoBehaviour
         } else if (pressingD) {
             targetTilt = -maxTilt;
         } else {
-            targetTilt = 0;
             Quaternion current = transform.rotation;
             Quaternion target = Quaternion.Euler(0, transform.eulerAngles.y, 0); // upright rotation
             transform.rotation = Quaternion.Slerp(current, target, uprightSpring * Time.deltaTime);
+            return;
         }
 
         float currentZRotation = transform.localEulerAngles.z;

@@ -3,31 +3,40 @@ using System.Collections;
 using System.Collections.Generic;
 
 
-// Moves a section (e.g., terrain or level segment) continuously along the negative Z-axis.
-// Provides methods to stop movement or increase speed dynamically.
-
+// Moves terrain sections continuously along the negative Z-axis,
+// creating the visual effect of the player moving forward through the world.
+//
+// Movement speed increases dynamically as game progresses,
+// escalating difficulty by making sections move faster (simulating increased player speed).
 
 public class MoveSection : MonoBehaviour
 {
-    public static float metersPerSecond = 90; // the shared speed of  all sections
+    public static float metersPerSecond = 90;    // Static speed variable shared by all terrain sections.
 
-    void Start(){
+    void Start()
+    {
         metersPerSecond = 90;
     }
 
-    void Update()       // moves the section backward along Z-axis based on current speed.
+    // Moves this section backward along Z-axis at current speed.
+    //  The negative Z movement creates visual illusion of forward camera movement (parallax effect).
+    void Update()
     {
         transform.position -= new Vector3(0, 0, metersPerSecond) * Time.deltaTime;
     }
 
-
-    public void Stop()  // Stops movement of all sections by setting speed to zero.
+   
+    // Stops movement of all sections by setting speed to zero.
+    // Called when game ends (collision detected).
+ 
+    public void Stop()
     {
         metersPerSecond = 0f;
     }
 
-
-    public static void IncreaseSpeed() // Increases the movement speed of all sections by a fixed amount.
+    // Increases the movement speed of all sections by a fixed amount.
+    // Called each time player hits a new section trigger.
+    public static void IncreaseSpeed()
     {
         metersPerSecond += 5f;
     }

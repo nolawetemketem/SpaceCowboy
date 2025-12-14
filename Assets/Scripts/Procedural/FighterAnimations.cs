@@ -2,21 +2,24 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 
-/// Controls the rotation animations of a fighter ship's wings and engines based on keyboard input.
-/// Engines rotate forward/backward with the S key.
-/// Wings tilt left/right with the A and D keys, and smoothly return to neutral when keys are released.
+//  Controls responsive rotation animations of a fighter ship's wings and engines.
+//
+//  Wings rotate with A (left) and D (right) keys, tilting the fighter 
+//  Engines rotate with S key, indicating acceleration/thrust
+//  Smooth damping returns animations to neutral when keys are released
 
 public class FighterAnimations : MonoBehaviour
 {
-    [Header("Engine and Wing GameObjects")]
     public GameObject TopEngine;
     public GameObject BottomEngine;
     public GameObject WingRight;
     public GameObject WingLeft;
-    public float rate = 120;
+ 
+    public float rate = 120;   // Controls how fast wings/engines rotate. 
 
     private float maxRotation = 15f, minRotation = 0f;  
-    // Current rotation state for wings and engines
+    
+    // Current rotation state for wings and engines - used to direct animation 
     private float leftWingRotation = 0f, rightWingRotation = 0f;
     private float topEngineRotation = 0f, bottonEngineRotation = 0f;
 
@@ -35,7 +38,7 @@ public class FighterAnimations : MonoBehaviour
             { 
                 float r = rate * Time.deltaTime; 
                 TopEngine.transform.Rotate(0, r, 0);   
-                topEngineRotation += r;
+                topEngineRotation += r;                 // Increment per frame
             }
             if (bottonEngineRotation < maxRotation)
             {
@@ -44,8 +47,9 @@ public class FighterAnimations : MonoBehaviour
                 bottonEngineRotation += r;
             }
         } 
-        else if (topEngineRotation > minRotation)  // Return engines to neutral rotation when key is released
+        else if (topEngineRotation > minRotation)
         {  
+            // Gradually get back to 0 rotation (for natural effect)
             float r = rate * Time.deltaTime;
             TopEngine.transform.Rotate(0, -r, 0);
             topEngineRotation -= r;
@@ -54,19 +58,19 @@ public class FighterAnimations : MonoBehaviour
         }
     }
 
-
-    private void Wings()   // Rotates wings when 'A' or 'D' keys are pressed and returns them to neutral when released.
+    // Rotates wings when 'A' or 'D' keys are pressed and returns them to neutral when released.    
+    private void Wings()   
     {
         if (Keyboard.current.aKey.isPressed)
         {
             if (leftWingRotation < maxRotation)
             {
                 float r = rate * Time.deltaTime;
-                WingLeft.transform.Rotate(0, r, r); 
+                WingLeft.transform.Rotate(0, r, r);  // Rotate on both Y and Z for realistic banking
                 leftWingRotation += r;
             } 
         } 
-        else if (leftWingRotation > minRotation) // Smoothly return left wing to neutral
+        else if (leftWingRotation > minRotation) // Smoothly return left wing to neutral position
         {   
             float r = rate * Time.deltaTime;
             WingLeft.transform.Rotate(0, -r, -r);
@@ -78,11 +82,11 @@ public class FighterAnimations : MonoBehaviour
             if (rightWingRotation < maxRotation)
             {
                 float r = rate * Time.deltaTime;
-                WingRight.transform.Rotate(0, r, -r); 
+                WingRight.transform.Rotate(0, r, -r);  // Opposite Z rotation creates balanced bank
                 rightWingRotation += r;
             } 
         }   
-        else if (rightWingRotation > minRotation) // Smoothly return right wing to neutral
+        else if (rightWingRotation > minRotation) // Smoothly return right wing to neutral position
         {   
             float r = rate * Time.deltaTime;
             WingRight.transform.Rotate(0, -r, r);
