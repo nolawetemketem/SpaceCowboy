@@ -60,7 +60,7 @@ Terrain:
   m_StaticShadowCaster: 0
   m_IgnoreQualitySettings: 0
   m_ReflectionProbeUsage: 1
-  m_MaterialTemplate: {fileID: 2100000, guid: 594ea882c5a793440b60ff72d896021e, type: 2}
+  m_MaterialTemplate: {fileID: 2100000, guid: 4b2556ebe1d434245a3778aa33444e12, type: 2}
   m_BakeLightProbesForTrees: 1
   m_PreserveTreePrototypeLayers: 0
   m_DeringLightProbesForTrees: 1
@@ -103,8 +103,11 @@ GameObject:
   m_Component:
   - component: {fileID: 75267643533318897}
   - component: {fileID: 4490894389944746028}
+  - component: {fileID: 2086261305561276611}
+  - component: {fileID: 1123793166359255832}
   - component: {fileID: 3090938844415616746}
   - component: {fileID: 8312481142077704968}
+  - component: {fileID: 1422048086463780328}
   - component: {fileID: 185181650131164689}
   - component: {fileID: 3310742979013516748}
   m_Layer: 0
@@ -143,20 +146,73 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RandomizeObjectsInSection
-  assignedParent: {fileID: 4880093667577675184}
+  assignedParent: {fileID: 3604535904535833351}
   terrain: {fileID: 5227150206506364078}
   objects:
   - {fileID: 145196, guid: 8a13b3dbbf597744192ac4a84ebb93c6, type: 3}
   - {fileID: 145196, guid: 8a13b3dbbf597744192ac4a84ebb93c6, type: 3}
-  - {fileID: 114448, guid: 50294217694c1a145a9a3b86f853c022, type: 3}
   objectsToGenerate: 20
-  minScale: 1
+  minScale: 2
   maxScale: 3
   minYRotation: 0
   maxYRotation: 360
   layerMaskToDetect: 0
   collisionRadius: 4
-  maxAttemptsPerObject: 20
+  maxAttemptsPerObject: 3
+  terrainXMinimumOffsett: 60
+  terrainXMaximumOffsett: -110
+--- !u!114 &2086261305561276611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4880093667577675184}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RandomObjectInSection
+  assignedParent: {fileID: 3604535904535833351}
+  terrain: {fileID: 5227150206506364078}
+  objects:
+  - {fileID: 114448, guid: 50294217694c1a145a9a3b86f853c022, type: 3}
+  objectsToGenerate: 2
+  minScale: 3
+  maxScale: 5
+  minYRotation: 0
+  maxYRotation: 360
+  layerMaskToDetect: 0
+  collisionRadius: 10
+  maxAttemptsPerObject: 3
+  terrainXMinimumOffsett: 60
+  terrainXMaximumOffsett: -110
+--- !u!114 &1123793166359255832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4880093667577675184}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RandomObjectInSection
+  assignedParent: {fileID: 3604535904535833351}
+  terrain: {fileID: 5227150206506364078}
+  objects:
+  - {fileID: 146236, guid: 802bd3dc24c20394ca2037c1b9c882a0, type: 3}
+  objectsToGenerate: 1
+  minScale: 10
+  maxScale: 14
+  minYRotation: 0
+  maxYRotation: 360
+  layerMaskToDetect: 0
+  collisionRadius: 10
+  maxAttemptsPerObject: 1
+  terrainXMinimumOffsett: 60
+  terrainXMaximumOffsett: -165
 --- !u!114 &3090938844415616746
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,18 +225,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RandomObjectInSection
-  assignedParent: {fileID: 4880093667577675184}
+  assignedParent: {fileID: 3604535904535833351}
   terrain: {fileID: 5227150206506364078}
   objects:
   - {fileID: 146236, guid: 802bd3dc24c20394ca2037c1b9c882a0, type: 3}
-  objectsToGenerate: 3
-  minScale: 8
-  maxScale: 12
+  objectsToGenerate: 1
+  minScale: 10
+  maxScale: 14
   minYRotation: 0
   maxYRotation: 360
   layerMaskToDetect: 0
   collisionRadius: 10
-  maxAttemptsPerObject: 20
+  maxAttemptsPerObject: 1
+  terrainXMinimumOffsett: 80
+  terrainXMaximumOffsett: -130
 --- !u!114 &8312481142077704968
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -193,20 +251,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RandomObjectInSection
-  assignedParent: {fileID: 4880093667577675184}
+  assignedParent: {fileID: 3604535904535833351}
   terrain: {fileID: 5227150206506364078}
   objects:
   - {fileID: 105562, guid: 65da5bb2d6e288b41baa018d8fec58f3, type: 3}
   - {fileID: 105562, guid: 65da5bb2d6e288b41baa018d8fec58f3, type: 3}
+  - {fileID: 105562, guid: 65da5bb2d6e288b41baa018d8fec58f3, type: 3}
   - {fileID: 108226, guid: 575780dd1f55b7941803be0767c1e36e, type: 3}
-  objectsToGenerate: 5
-  minScale: 8
-  maxScale: 10
+  - {fileID: 114448, guid: 50294217694c1a145a9a3b86f853c022, type: 3}
+  objectsToGenerate: 4
+  minScale: 6
+  maxScale: 8
+  minYRotation: 0
+  maxYRotation: 360
+  layerMaskToDetect: 0
+  collisionRadius: 10
+  maxAttemptsPerObject: 3
+  terrainXMinimumOffsett: 60
+  terrainXMaximumOffsett: -110
+--- !u!114 &1422048086463780328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4880093667577675184}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25d02b9c9f918464aa6c65978b21c299, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RandomObjectInSection
+  assignedParent: {fileID: 3604535904535833351}
+  terrain: {fileID: 5227150206506364078}
+  objects:
+  - {fileID: 108226, guid: 575780dd1f55b7941803be0767c1e36e, type: 3}
+  objectsToGenerate: 1
+  minScale: 6
+  maxScale: 8
   minYRotation: 0
   maxYRotation: 360
   layerMaskToDetect: 0
   collisionRadius: 10
   maxAttemptsPerObject: 20
+  terrainXMinimumOffsett: 60
+  terrainXMaximumOffsett: -110
 --- !u!114 &185181650131164689
 MonoBehaviour:
   m_ObjectHideFlags: 0

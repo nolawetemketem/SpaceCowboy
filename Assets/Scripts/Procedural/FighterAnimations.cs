@@ -1,89 +1,91 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class BodyController : MonoBehaviour
+
+/// Controls the rotation animations of a fighter ship's wings and engines based on keyboard input.
+/// Engines rotate forward/backward with the S key.
+/// Wings tilt left/right with the A and D keys, and smoothly return to neutral when keys are released.
+
+public class FighterAnimations : MonoBehaviour
 {
-    private float maxRotation = 15f;
-    private float minRotation = 0f;
-    private float leftWingRotation = 0f;
-    private float rightWingRotation = 0f;
-    private float topEngineRotation = 0f;
-    private float bottonEngineRotation = 0f;
-    public float rate = 120;
+    [Header("Engine and Wing GameObjects")]
     public GameObject TopEngine;
     public GameObject BottomEngine;
     public GameObject WingRight;
     public GameObject WingLeft;
-    
-    void Start()
+    public float rate = 120;
+
+    private float maxRotation = 15f, minRotation = 0f;  
+    // Current rotation state for wings and engines
+    private float leftWingRotation = 0f, rightWingRotation = 0f;
+    private float topEngineRotation = 0f, bottonEngineRotation = 0f;
+
+    void Update()
     {
-        
+        Engine(); 
+        Wings();  
     }
 
 
-    void Update()
+    private void Engine() // Rotates engines forward when 'S' is pressed, and back to neutral when released.
     {
         if (Keyboard.current.sKey.isPressed)
         {
             if (topEngineRotation < maxRotation)
-            {
-                float r = rate * Time.deltaTime;
-                TopEngine.transform.Rotate(0,r,0);
+            { 
+                float r = rate * Time.deltaTime; 
+                TopEngine.transform.Rotate(0, r, 0);   
                 topEngineRotation += r;
             }
             if (bottonEngineRotation < maxRotation)
             {
                 float r = rate * Time.deltaTime;
-                BottomEngine.transform.Rotate(0,r,0);
+                BottomEngine.transform.Rotate(0, r, 0);
                 bottonEngineRotation += r;
             }
-        }
-        else if (topEngineRotation > minRotation)
-        {
+        } 
+        else if (topEngineRotation > minRotation)  // Return engines to neutral rotation when key is released
+        {  
             float r = rate * Time.deltaTime;
-            TopEngine.transform.Rotate(0,-r,0);
+            TopEngine.transform.Rotate(0, -r, 0);
             topEngineRotation -= r;
-            BottomEngine.transform.Rotate(0,-r,0);
+            BottomEngine.transform.Rotate(0, -r, 0);
             bottonEngineRotation -= r;
         }
-        Turn();
     }
-    
-    private void Turn()
+
+
+    private void Wings()   // Rotates wings when 'A' or 'D' keys are pressed and returns them to neutral when released.
     {
-        // Left wing control
         if (Keyboard.current.aKey.isPressed)
         {
             if (leftWingRotation < maxRotation)
             {
                 float r = rate * Time.deltaTime;
-                WingLeft.transform.Rotate(0,r,r);
+                WingLeft.transform.Rotate(0, r, r); 
                 leftWingRotation += r;
             } 
-            // transform.Rotate(0, -rate * Time.deltaTime, 0);
         } 
-        else if (leftWingRotation > minRotation)
-        {
+        else if (leftWingRotation > minRotation) // Smoothly return left wing to neutral
+        {   
             float r = rate * Time.deltaTime;
-            WingLeft.transform.Rotate(0,-r,-r);
+            WingLeft.transform.Rotate(0, -r, -r);
             leftWingRotation -= r;
         }
-        // Right wing control
+
         if (Keyboard.current.dKey.isPressed)
         {
             if (rightWingRotation < maxRotation)
             {
                 float r = rate * Time.deltaTime;
-                WingRight.transform.Rotate(0,r,-r);
+                WingRight.transform.Rotate(0, r, -r); 
                 rightWingRotation += r;
             } 
-            // transform.Rotate(0, rate * Time.deltaTime, 0);
-
-        }
-        else if (rightWingRotation > minRotation)
-        {
+        }   
+        else if (rightWingRotation > minRotation) // Smoothly return right wing to neutral
+        {   
             float r = rate * Time.deltaTime;
-            WingRight.transform.Rotate(0,-r,r);
+            WingRight.transform.Rotate(0, -r, r);
             rightWingRotation -= r;
         }
     }

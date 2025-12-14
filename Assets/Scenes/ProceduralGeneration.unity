@@ -17,7 +17,7 @@ RenderSettings:
   m_Fog: 1
   m_FogColor: {r: 1, g: 0.8215458, b: 0.4764151, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.001
+  m_FogDensity: 0.002
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
@@ -94,7 +94,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 20201, guid: 0000000000000000f000000000000000, type: 0}
-  m_LightingSettings: {fileID: 0}
+  m_LightingSettings: {fileID: 4890085278179872738, guid: 29d81b865639f4545ab85011acba1048, type: 2}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -543,7 +543,7 @@ PrefabInstance:
       addedObject: {fileID: 1937842895}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: afe7b5d72d6a851469b5ff44698d306a, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1937842898}
+      addedObject: {fileID: 1937842900}
   m_SourcePrefab: {fileID: 100100000, guid: afe7b5d72d6a851469b5ff44698d306a, type: 3}
 --- !u!1 &964672502
 GameObject:
@@ -956,7 +956,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TimeControl
   stopwatchText: {fileID: 1791966543}
---- !u!114 &1937842898
+--- !u!114 &1937842900
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -967,12 +967,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b0965ea86b151ca4e93d0757462461f6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BodyController
-  rate: 120
+  m_EditorClassIdentifier: Assembly-CSharp::FighterAnimations
   TopEngine: {fileID: 73763864}
   BottomEngine: {fileID: 1563656688}
   WingRight: {fileID: 1350640087}
   WingLeft: {fileID: 1102752664}
+  rate: 120
 --- !u!1001 &2106210874
 PrefabInstance:
   m_ObjectHideFlags: 0
