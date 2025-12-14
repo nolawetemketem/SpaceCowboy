@@ -9,8 +9,11 @@ using System.Collections.Generic;
 
 public class MoveSection : MonoBehaviour
 {
-    public static float metersPerSecond = 75; // the shared speed of  all sections
+    public static float metersPerSecond = 90; // the shared speed of  all sections
 
+    void Start(){
+        metersPerSecond = 90;
+    }
 
     void Update()       // moves the section backward along Z-axis based on current speed.
     {

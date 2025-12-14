@@ -10,8 +10,8 @@ public class StrafeHoverMovement : MonoBehaviour
     public float hoverDistance = 35f;
     public float hoverForce = 35f;
     public float hoverDamping = 5f;
-    public float swayAmount = 15f;
-    public float swaySpeed = 15f;
+    public float swayAmount = 20f;
+    public float swaySpeed = 5f;
 
     [Header("Strafe Movement")]
     public float strafeAcceleration = 100f;
@@ -28,6 +28,7 @@ public class StrafeHoverMovement : MonoBehaviour
     private Rigidbody rb; // Rigidbody component for physics
     private float targetTilt = 0f, tiltMomentum = 0f; // Used for smooth damp calculation of tilt
     private bool pressingA = false, pressingD = false, pressingS = false, pressingW = false;
+    
 
    
     void Start()
@@ -63,11 +64,11 @@ public class StrafeHoverMovement : MonoBehaviour
 
         if (transform.position.z > 5 && pressingS) // Move Forward
         {
-            rb.AddForce((strafeDirection - transform.forward).normalized * (strafeAcceleration / 8), ForceMode.Acceleration);
+            rb.AddForce((strafeDirection - transform.forward).normalized * (strafeAcceleration / 5), ForceMode.Acceleration);
         }
         else if (transform.position.z < 30 && pressingW) // Move Backward
         {
-            rb.AddForce((strafeDirection + transform.forward).normalized * (strafeAcceleration / 10), ForceMode.Acceleration);
+            rb.AddForce((strafeDirection + transform.forward).normalized * (strafeAcceleration / 8), ForceMode.Acceleration);
         }
 
         // Left/right strafing
