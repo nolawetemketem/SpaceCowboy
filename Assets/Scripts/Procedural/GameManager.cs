@@ -38,6 +38,8 @@ public class GameManager : MonoBehaviour
         restartButton.onClick.AddListener(Restart);
         quitButton.onClick.AddListener(Quit);
 
+        MoveSection.StartOnce();
+
         stopwatch = new();
         stopwatch.Start();
         stopwatchText.SetText("00:00.00");

@@ -13,7 +13,8 @@ public class MoveSection : MonoBehaviour
 {
     public static float metersPerSecond = 80;    // Static speed variable shared by all terrain sections.
 
-    void Start()
+
+    public static void StartOnce()
     {
         metersPerSecond = 80;
     }
