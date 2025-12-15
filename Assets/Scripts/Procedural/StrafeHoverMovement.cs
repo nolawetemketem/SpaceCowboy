@@ -14,7 +14,7 @@ public class StrafeHoverMovement : MonoBehaviour
     public float swaySpeed = 5f;
 
     [Header("Strafe Movement")]
-    public float strafeAcceleration = 100f;
+    public float strafeAcceleration = 90f;
     public float strafeDrag = 2f;
 
     [Header("Tilt Settings")]

@@ -11,11 +11,11 @@ using System.Collections.Generic;
 
 public class MoveSection : MonoBehaviour
 {
-    public static float metersPerSecond = 90;    // Static speed variable shared by all terrain sections.
+    public static float metersPerSecond = 80;    // Static speed variable shared by all terrain sections.
 
     void Start()
     {
-        metersPerSecond = 90;
+        metersPerSecond = 80;
     }
 
     // Moves this section backward along Z-axis at current speed.
