@@ -72,7 +72,7 @@ public class RandomObjectInSection : MonoBehaviour
         {
             bool placed = false;
 
-            // Collision avoidance loop ttempts to place object without colliding with existing ones 
+            // Collision avoidance loop attempts to place object without colliding with existing ones 
             for (int atmpts = 0; !placed && atmpts < maxAttemptsPerObject; atmpts++)
             {
         
