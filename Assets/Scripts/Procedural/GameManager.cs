@@ -6,7 +6,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
-using System.Security.AccessControl;
 
 // GameManager orchestrates the core game loop for the procedurally generated endless pod racing game.
 public class GameManager : MonoBehaviour

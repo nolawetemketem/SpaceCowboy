@@ -1,0 +1,40 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.DS_Store
+**/.DS_Store
+
+# Crash reports / builds
+sysinfo.txt
+*.apk
+*.aab
+crashlytics-build.properties
+
+# Local backups
+/_settings_backup/
+
+# Large importer cache (>100MB, over GitHub limit)
+/Assets/TDImportCache/untitled.tdc

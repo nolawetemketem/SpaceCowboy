@@ -33,8 +33,8 @@ public class RandomObjectInSection : MonoBehaviour
     [Header("Collision & Placement")]
     public int layerMaskToDetect = 0;
 
-    /// Collision detection radius. Objects must be placed without colliding with
-    /// other obstacles in this radius (prevents crowded spawning).
+    // Collision detection radius. Objects must be placed without colliding with
+    // other obstacles in this radius (prevents crowded spawning).
     public float collisionRadius = 10f;
 
     // Maximum attempts to place a single object before giving up.
