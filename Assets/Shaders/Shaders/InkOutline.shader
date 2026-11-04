@@ -1,7 +1,7 @@
-// Ink pass: ported from Space Cowboy Web (src/render/ink/ink.frag.glsl).
-// Draws the outlines after the scene is rendered, in screen space. For each screen pixel it
-// compares the depth and surface direction with its neighbours; where either jumps, that's an
-// edge: ink it. Lines are the same pixel width at any distance.
+// Ink pass
+//  - Draws the outlines after the scene is rendered, in screen space. For each screen pixel it
+//  - compares the depth and surface direction with its neighbours; where either jumps, that's an
+//    edge: ink it. Lines are the same pixel width at any distance.
 //
 // Use it with URP's Full Screen Pass Renderer Feature (on the URP Renderer asset):
 //   Injection Point: Before Rendering Post Processing
@@ -111,7 +111,7 @@ Shader "SpaceCowboy/InkOutline"
                     smoothstep(_DepthThreshold, _DepthThreshold * 1.5, depthEdge) * max(visible, bigJump),
                     smoothstep(_NormalThreshold, _NormalThreshold * 1.5, turn) * visible);
 
-                // YOUR TURN (optional) — brush weight. Real ink lines swell and thin. Ideas:
+                // brush weight. Real ink lines swell and thin. Ideas:
                 //   a) make a smooth noise value from the screen position (uv * _ScreenSize.xy / 40.0),
                 //   b) scale `ox` and `oy` by (0.6 + noise) before sampling, so the line width varies,
                 //   c) or scale `edge` by noise so some lines fade like a dry brush.

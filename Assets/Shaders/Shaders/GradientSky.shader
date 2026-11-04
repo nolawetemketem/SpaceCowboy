@@ -1,7 +1,6 @@
-// Sky: ported from Space Cowboy Web (makeSky in src/render/toon.ts).
-// A three-color gradient: horizon, then mid, then top. Use it as a Skybox material
-// (Window > Rendering > Lighting > Environment > Skybox Material).
-// Defaults are the daytime colors; night is top #2c2236, mid #594863, horizon #6b4a5e.
+// Sky:
+//  - A three-color gradient: horizon, then mid, then top. Use it as a Skybox material (Window > Rendering > Lighting > Environment > Skybox Material).
+//  - Defaults are the daytime colors; night is top #2c2236, mid #594863, horizon #6b4a5e.
 
 Shader "SpaceCowboy/GradientSky"
 {

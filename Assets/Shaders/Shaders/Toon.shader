@@ -1,10 +1,8 @@
-// Toon shader: ported from Space Cowboy Web (src/render/templates/customToon/).
-// Three flat light bands, and shadows that lean toward a color (Bebop purple/blue) instead of grey.
-//
+// Toon shader Three flat light bands, and shadows that lean toward a color (Bebop purple/blue) instead of grey.
 // What changed from the web version:
-//   - It uses the scene's main Directional Light, so lightDirection/lightColor are gone.
-//   - Cast shadows and fog work (the web version left both out).
-//   - It has DepthOnly / DepthNormals passes, so the ink outline pass can see it.
+//   - uses the scene's main Directional Light
+//   - Cast shadows and fog work 
+//   - has DepthOnly / DepthNormals passes, for the ink outline pass 
 
 Shader "SpaceCowboy/Toon"
 {
@@ -107,7 +105,7 @@ Shader "SpaceCowboy/Toon"
                 // Cast shadows drop the pixel into the shadow band, so they match turned-away faces exactly.
                 nDotL = min(nDotL, lerp(-1.0, 1.0, sun.shadowAttenuation));
 
-                // 5. YOUR TURN — hand-drawn band edges (Messenger's look). Nudge nDotL here, before step 3:
+                // 5. hand-drawn band edges (Messenger's look). Nudge nDotL here, before step 3:
                 //    float noise = frac(sin(dot(i.worldPosition.xz, float2(12.9898, 78.233))) * 43758.5453);
                 //    nDotL += (noise - 0.5) * 0.08;
                 //    Try a smoother value noise at a lower frequency (i.worldPosition.xz * 0.5),
