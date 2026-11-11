@@ -214,18 +214,6 @@ namespace SpaceCowboy
         static readonly Color Ink = Palette.Hex("#111111");
         static readonly Color Blush = Palette.Hex("#e8423a");
 
-        /// <summary>The ball's wrap-around texture: emoticon yellow with one face on its "equator".</summary>
-        public static Texture2D BallTexture()
-        {
-            const int width = 2048, height = 1024;
-            const float faceSpanDegrees = 80f; // how much of the ball the face covers, side to side
-            var painter = new TexturePainter(width, height, Palette.Ball);
-            float scale = faceSpanDegrees / 360f * width / 64f; // the features are about 64 units wide
-            // Centre the features, nudged so the eyes sit a little above the middle.
-            DrawFace(painter, p => new Vector2(width * 0.25f, height * 0.5f) + (p - new Vector2(50f, 52f)) * scale, scale);
-            return painter.ToTexture();
-        }
-
         /// <summary>The whole emoticon, round face and outline included, as a sticker on a clear background.</summary>
         public static Texture2D Sticker(int size = 256)
         {

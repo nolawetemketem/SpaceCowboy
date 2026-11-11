@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 
 namespace SpaceCowboy
@@ -8,8 +9,7 @@ namespace SpaceCowboy
     /// Runs Training mode, like the web game's Game.ts:
     ///   Menu:     the camera slowly circles the field; Ed's floating screen hovers in front of it.
     ///   Leaving:  TRAINING was chosen; the screen dips as its thrusters spool up, then launches straight up out of view.
-    ///   Training: the camera swoops down behind the craft and you play. R resets the craft,
-    ///             B brings the ball back (neither touches the score).
+    ///   Training: the camera swoops down behind the craft and you play. R resets the craft.
     /// </summary>
     public class SpaceCowboyGame : MonoBehaviour
     {
@@ -25,6 +25,10 @@ namespace SpaceCowboy
         [Tooltip("Paint the Fighter like the web game: cream body, red engines.")]
         public bool webFighterColors = true;
         public float fieldOfView = 65f;
+
+        [Header("Practice")]
+        [Tooltip("How many practice ships to shoot at in space flight. 0 = none.")]
+        public int practiceTargets = 8;
 
         [Header("Start menu")]
         [Tooltip("Skip the menu and start Training straight away (handy while tuning).")]
@@ -44,6 +48,7 @@ namespace SpaceCowboy
         Camera cam;
         Hud hud;
         StartMenu menu;
+        ShipDestruction destruction;
         float menuTime, leavingTime;
 
         void Start()
@@ -55,10 +60,19 @@ namespace SpaceCowboy
             if (webFighterColors) PaintFighter();
 
             hud = Hud.Create();
+            hud.Controls.Closed += input.Clear; // presses made in the settings don't reach the ship
             arena.Build();
             if (timeOfDay) timeOfDay.UseField(arena.transform);
-            arena.ScoreChanged += hud.SetScore;
-            hud.SetScore(0, 0);
+
+            // Any ship can carry a ShipWeapon. If the Fighter doesn't have one in the scene, give it the default.
+            if (craft.spaceFlight)
+            {
+                var weapon = craft.GetComponent<ShipWeapon>();
+                if (!weapon) weapon = craft.gameObject.AddComponent<ShipWeapon>();
+                hud.ShowAim(weapon, cam);
+                MakeDestructible();
+                if (practiceTargets > 0) TargetRange.Create(arena, craft, practiceTargets);
+            }
 
             menu = StartMenu.Create(cam, timeOfDay ? timeOfDay.setting : TimeOfDaySetting.Auto);
             menu.TrainingChosen += LeaveMenu;
@@ -75,13 +89,28 @@ namespace SpaceCowboy
         void Update()
         {
             if (state != State.Training) return;
-            // Training safety valves: neither touches the score.
-            if (input.TakeResetCraft())
+
+            // The settings open over the game without pausing it. The ship coasts while they're up.
+            var controls = hud.Controls;
+            bool wrecked = destruction && destruction.Wrecked;
+            craft.controlsEnabled = !controls.IsOpen && !wrecked;
+            if (controls.IsOpen)
+            {
+                controls.Tick();
+                return;
+            }
+            if (SettingsPressed())
+            {
+                hud.OpenControls();
+                return;
+            }
+
+            // Training safety valve. A destroyed ship is already on its way back.
+            if (input.TakeResetCraft() && !wrecked)
             {
                 craft.ResetTo(arena.CraftStartPosition, arena.CraftStartRotation);
                 follow.Snap();
             }
-            if (input.TakeResetBall()) arena.RespawnBall();
         }
 
         void LateUpdate()
@@ -110,7 +139,7 @@ namespace SpaceCowboy
             leavingTime = 0f;
         }
 
-        /// <summary>Start (or restart) Training: craft at its start spot, ball in the middle, score 0–0.</summary>
+        /// <summary>Start (or restart) Training: craft at its start spot.</summary>
         void StartTraining(bool fromMenu)
         {
             Vector3 menuPosition = cam.transform.position;
@@ -119,8 +148,6 @@ namespace SpaceCowboy
 
             state = State.Training;
             menu.gameObject.SetActive(false);
-            arena.ResetScore();
-            arena.RespawnBall();
             craft.ResetTo(arena.CraftStartPosition, arena.CraftStartRotation);
             craft.controlsEnabled = true;
             input.Clear(); // drop presses made in the menu
@@ -177,6 +204,29 @@ namespace SpaceCowboy
                 j.sharedMaterial.color = new Color(c.r, c.g, c.b, jet);
                 j.transform.localScale = new Vector3(0.11f, 0.11f, 1f) * jetSize;
             }
+        }
+
+        /// <summary>The Menu button on a controller (above the right stick), or Esc.</summary>
+        static bool SettingsPressed()
+        {
+            var keys = Keyboard.current;
+            var pad = Gamepad.current;
+            return (keys != null && keys.escapeKey.wasPressedThisFrame) || (pad != null && pad.startButton.wasPressedThisFrame);
+        }
+
+        /// <summary>The player's ship can be destroyed too: it blows apart, then is projected back at the start spot.</summary>
+        void MakeDestructible()
+        {
+            if (!craft.GetComponent<Damageable>()) craft.gameObject.AddComponent<Damageable>();
+            destruction = craft.GetComponent<ShipDestruction>();
+            if (!destruction) destruction = craft.gameObject.AddComponent<ShipDestruction>();
+            destruction.Setup(craft.transform.Find("BankPivot"));
+            destruction.WreckGone += () =>
+            {
+                craft.ResetTo(arena.CraftStartPosition, arena.CraftStartRotation);
+                follow.Snap();
+                destruction.Materialize();
+            };
         }
 
         /// <summary>Cream body, red engines (the web game's fighterPartColor). Only while playing; the assets stay as they are.</summary>

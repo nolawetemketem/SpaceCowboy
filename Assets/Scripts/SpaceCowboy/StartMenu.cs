@@ -29,7 +29,7 @@ namespace SpaceCowboy
         static readonly (Item id, string label, bool comingSoon)[] Items =
         {
             (Item.Training, "TRAINING", false),
-            (Item.Controls, "CONTROLS", false),
+            (Item.Controls, "CONTROLS & SETTINGS", false),
             (Item.Local, "1V1 LOCAL", true),
             (Item.Online, "ONLINE", true),
             (Item.Time, "TIME OF DAY", false),
@@ -45,7 +45,8 @@ namespace SpaceCowboy
         int selected;
         bool active = true;
         bool showingControls;
-        RectTransform mainPage, controlsPage;
+        RectTransform mainPage;
+        ControlsPanel controls;
         bool stickWasHeld;
         Row[] rows;
         TextMeshProUGUI timeValue;
@@ -82,15 +83,9 @@ namespace SpaceCowboy
         void ReadInput()
         {
             var keys = Keyboard.current;
-            var gamepad = Gamepad.current;
             if (showingControls)
             {
-                // Any of these goes back to the menu.
-                bool back = (keys != null && (keys.escapeKey.wasPressedThisFrame || keys.backspaceKey.wasPressedThisFrame ||
-                                              keys.enterKey.wasPressedThisFrame || keys.spaceKey.wasPressedThisFrame)) ||
-                            (gamepad != null && (gamepad.buttonEast.wasPressedThisFrame || gamepad.buttonSouth.wasPressedThisFrame ||
-                                                 gamepad.startButton.wasPressedThisFrame));
-                if (back) ShowControls(false);
+                controls.Tick();
                 return;
             }
 
@@ -146,7 +141,7 @@ namespace SpaceCowboy
                 return;
             }
             if (item.id == Item.Time) CycleTime(1);
-            if (item.id == Item.Controls) ShowControls(true);
+            if (item.id == Item.Controls) ShowControls();
             if (item.id == Item.Training) TrainingChosen?.Invoke();
         }
 
@@ -276,9 +271,14 @@ namespace SpaceCowboy
             // padding: 26px 34px
             const float padX = 34f;
 
-            // Two pages on the same screen: the menu, and the controls (for new players).
+            // Two pages on the same screen: the menu, and the controls with the player's settings.
             mainPage = UI.Rect("Main Page", canvasRect, Vector2.zero, Vector2.one);
-            BuildControlsPage(canvasRect, padX);
+            controls = new ControlsPanel(canvasRect);
+            controls.Closed += () =>
+            {
+                showingControls = false;
+                mainPage.gameObject.SetActive(true);
+            };
             var page = mainPage;
 
             // h1: 700 64px Oswald, uppercase, yellow, with a hard red shadow 3px down-right and a soft glow.
@@ -329,69 +329,11 @@ namespace SpaceCowboy
             ShowTime();
         }
 
-        void ShowControls(bool show)
+        void ShowControls()
         {
-            showingControls = show;
-            mainPage.gameObject.SetActive(!show);
-            controlsPage.gameObject.SetActive(show);
-        }
-
-        /// <summary>What each control does, on the keyboard and on a controller.</summary>
-        static readonly (string action, string keys, string pad)[] ControlList =
-        {
-            ("THROTTLE", "W / \u2191", "RT"),
-            ("BRAKE \u00B7 REVERSE", "S / \u2193", "LT"),
-            ("STEER", "A D / \u2190 \u2192", "LEFT STICK"),
-            ("RISE (HOLD)", "SPACE", "\u24B6 / RB"),
-            ("DROP (HOLD)", "C", "\u24CE / LB"),
-            ("BOOST", "LEFT SHIFT", "\u24B7"),
-            ("RESET SHIP", "R", "VIEW"),
-            ("RESET BALL", "B", "\u24CD"),
-            ("LOOK AROUND", "\u2014", "RIGHT STICK"),
-        };
-
-        /// <summary>The controls page: a heading, then each action with its key and its controller button.</summary>
-        void BuildControlsPage(RectTransform canvas, float padX)
-        {
-            controlsPage = UI.Rect("Controls Page", canvas, Vector2.zero, Vector2.one);
-            // Clicking anywhere on the page goes back.
-            var catcher = controlsPage.gameObject.AddComponent<Image>();
-            catcher.color = Color.clear;
-            var events = controlsPage.gameObject.AddComponent<EventTrigger>();
-            AddEvent(events, EventTriggerType.PointerClick, () => { if (active) ShowControls(false); });
-
-            Line(controlsPage, "Heading Shadow", "CONTROLS", Fonts.Condensed, 40f, Palette.Red, padX + 2f, 24f + 2f, 44f);
-            var heading = Line(controlsPage, "Heading", "CONTROLS", Fonts.Condensed, 40f, Palette.Yellow, padX, 24f, 44f);
-            heading.fontSharedMaterial = Fonts.Glow(Fonts.Condensed, new Color(0.97f, 0.84f, 0.11f, 0.35f), 0.6f);
-
-            const float keysX = 200f, padColumnX = 340f, top = 96f, step = 23f;
-            foreach (var (text, x) in new[] { ("KEYBOARD", keysX), ("CONTROLLER", padColumnX) })
-            {
-                var header = Line(controlsPage, text, text, Fonts.Condensed, 12f, Palette.Blush, x, top - 20f, 18f);
-                header.characterSpacing = 12f;
-            }
-
-            var glow = Fonts.Glow(Fonts.Mono, new Color(1f, 0.54f, 0.12f, 0.55f), 0.35f);
-            for (int i = 0; i < ControlList.Length; i++)
-            {
-                var (action, keys, pad) = ControlList[i];
-                float y = top + i * step;
-                if (i % 2 == 0)
-                {
-                    // A faint band on every other row, so each line is easy to follow across.
-                    var band = Anchored(UI.Rect("Band", controlsPage, new Vector2(0f, 1f), new Vector2(0f, 1f)), padX - 6f, y, MenuPixels.x - 2f * padX + 12f, step);
-                    var bandImage = band.gameObject.AddComponent<Image>();
-                    bandImage.color = new Color(1f, 0.54f, 0.12f, 0.07f);
-                    bandImage.raycastTarget = false;
-                }
-                var label = Line(controlsPage, action, action, Fonts.Mono, 14f, Palette.Amber, padX, y, step);
-                label.fontSharedMaterial = glow;
-                Line(controlsPage, action + " Keys", keys, Fonts.Lcd, 20f, Palette.TealGlow, keysX, y, step);
-                Line(controlsPage, action + " Pad", pad, Fonts.Lcd, 20f, Palette.TealGlow, padColumnX, y, step);
-            }
-
-            Line(controlsPage, "Back Hint", "ENTER / ESC / \u24B7 back", Fonts.MonoRegular, 14f, Palette.AmberDim, padX, top + ControlList.Length * step + 8f, 21f);
-            controlsPage.gameObject.SetActive(false);
+            showingControls = true;
+            mainPage.gameObject.SetActive(false);
+            controls.Open();
         }
 
         Row BuildRow(RectTransform canvas, int i, float padX, float top, float height)
@@ -466,7 +408,7 @@ namespace SpaceCowboy
         }
 
         /// <summary>Place a box by its left edge and top (or middle), in CSS pixels from the top-left.</summary>
-        static RectTransform Anchored(RectTransform rect, float left, float top, float width, float height, bool middle = false)
+        public static RectTransform Anchored(RectTransform rect, float left, float top, float width, float height, bool middle = false)
         {
             rect.pivot = new Vector2(0f, middle ? 0.5f : 1f);
             rect.sizeDelta = new Vector2(width, height);
@@ -475,7 +417,7 @@ namespace SpaceCowboy
         }
 
         /// <summary>One line of text, its box starting at (x, top) in CSS pixels from the top-left.</summary>
-        static TextMeshProUGUI Line(RectTransform canvas, string name, string text, TMP_FontAsset font, float size, Color color, float x, float top, float height)
+        public static TextMeshProUGUI Line(RectTransform canvas, string name, string text, TMP_FontAsset font, float size, Color color, float x, float top, float height)
         {
             var tmp = UI.Text(name, canvas, text, size, color);
             tmp.font = font;

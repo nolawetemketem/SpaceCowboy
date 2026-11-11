@@ -1,16 +1,15 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaceCowboy
 {
     /// <summary>
-    /// The Training field, built when the game starts, wherever this object sits in the scene: two goals,
-    /// the ball, faded field lines, and the score. Move and turn this object to put the field somewhere
+    /// The Training field, built when the game starts, wherever this object sits in the scene: two goals
+    /// and faded field lines. Move and turn this object to put the field somewhere
     /// else. Its blue arrow (+Z) points at goal A, straight ahead of where the craft starts.
     ///
     /// Sizes are the web game's × 3.2, the scale of this scene. Everything sits on the ground below
-    /// it, so it works on uneven ground too, though the ball rolls best on flat ground.
+    /// it, so it works on uneven ground too.
     /// </summary>
     public class TrainingArena : MonoBehaviour
     {
@@ -27,8 +26,6 @@ namespace SpaceCowboy
         public float goalHalfWidth = 19f;
         [Tooltip("Height of the crossbar's underside.")]
         public float goalHeight = 16f;
-        [Tooltip("How far behind the goal line the scoring zone reaches.")]
-        public float goalDepth = 10f;
         public float postThickness = 2f;
         public Color goalAColor = Palette.Amber;
         public Color goalBColor = Palette.Teal;
@@ -38,64 +35,21 @@ namespace SpaceCowboy
         public float craftStartDistance = 90f;
         [Tooltip("The craft starts this high above the ground (it floats down onto its hover).")]
         public float craftStartHeight = 6f;
-        [Tooltip("The ball drops in from this high above the centre.")]
-        public float ballDropHeight = 10f;
-
-        /// <summary>After a goal, ignore the goals for this long, so one goal can never count twice.</summary>
-        const float LockoutSeconds = 0.5f;
-
-        [NonSerialized] public Ball ball;
-        public int ScoreA { get; private set; }
-        public int ScoreB { get; private set; }
-        /// <summary>Called whenever the score changes (goal A's count, goal B's count).</summary>
-        public event Action<int, int> ScoreChanged;
-
-        float lockout;
-        Vector3 ballSpawn;
 
         /// <summary>The middle of the field, on the ground.</summary>
         public Vector3 Centre => OnGround(0f, 0f);
         public Vector3 CraftStartPosition => OnGround(0f, -craftStartDistance) + Vector3.up * craftStartHeight;
         public Quaternion CraftStartRotation => Quaternion.LookRotation(Flat(transform.forward), Vector3.up);
 
-        /// <summary>Build the goals, the field lines and the ball. Called once by the game.</summary>
+        /// <summary>Build the goals and the field lines. Called once by the game.</summary>
         public void Build()
         {
-            ball = Ball.Create(transform);
             BuildGoal(0, 1f, goalAColor);
             BuildGoal(1, -1f, goalBColor);
             if (drawFieldLines) BuildFieldLines();
-            ballSpawn = Centre + Vector3.up * (ballDropHeight + ball.radius);
-            RespawnBall();
         }
 
-        void Update()
-        {
-            lockout = Mathf.Max(0f, lockout - Time.deltaTime);
-        }
-
-        public void RespawnBall() => ball.Respawn(ballSpawn);
-
-        /// <summary>Back to 0–0 (each time Training starts).</summary>
-        public void ResetScore()
-        {
-            ScoreA = ScoreB = 0;
-            lockout = 0f;
-            ScoreChanged?.Invoke(ScoreA, ScoreB);
-        }
-
-        /// <summary>The ball went into a goal: count it, and put the ball back in the middle.</summary>
-        public void Scored(int goal)
-        {
-            if (lockout > 0f) return;
-            if (goal == 0) ScoreA++;
-            else ScoreB++;
-            lockout = LockoutSeconds;
-            RespawnBall();
-            ScoreChanged?.Invoke(ScoreA, ScoreB);
-        }
-
-        /// <summary>Two posts and a crossbar, plus an invisible sensor just behind the goal line.</summary>
+        /// <summary>Two posts and a crossbar.</summary>
         void BuildGoal(int goal, float end, Color color)
         {
             var root = new GameObject(goal == 0 ? "Goal A" : "Goal B").transform;
@@ -105,7 +59,7 @@ namespace SpaceCowboy
             float postX = goalHalfWidth + postThickness / 2f;
 
             // The crossbar is level, goalHeight above the highest of the two posts' feet.
-            float leftY = LocalGroundY(-postX, z), rightY = LocalGroundY(postX, z), middleY = LocalGroundY(0f, z);
+            float leftY = LocalGroundY(-postX, z), rightY = LocalGroundY(postX, z);
             float barY = Mathf.Max(leftY, rightY) + goalHeight;
             foreach (var (x, footY) in new[] { (-postX, leftY), (postX, rightY) })
             {
@@ -116,19 +70,6 @@ namespace SpaceCowboy
             }
             Palette.Shape(PrimitiveType.Cube, "Crossbar", root, new Vector3(0f, barY + postThickness / 2f, z),
                 new Vector3((goalHalfWidth + postThickness) * 2f, postThickness, postThickness), material, keepCollider: true);
-
-            // The sensor starts one ball-width past the line, so it only notices the ball once the whole
-            // ball is over the line (its front edge touches the sensor as its back edge crosses).
-            float start = halfLength + 2f * ball.radius;
-            var sensor = new GameObject("Scoring Zone");
-            sensor.transform.SetParent(root, false);
-            sensor.transform.localPosition = new Vector3(0f, middleY + goalHeight / 2f, end * (start + goalDepth / 2f));
-            var box = sensor.AddComponent<BoxCollider>();
-            box.isTrigger = true;
-            box.size = new Vector3(goalHalfWidth * 2f, goalHeight + 8f, goalDepth);
-            var goalSensor = sensor.AddComponent<GoalSensor>();
-            goalSensor.arena = this;
-            goalSensor.goal = goal;
         }
 
         /// <summary>Old, faded paint: the boundary, the halfway line and the centre circle, following the ground.</summary>
@@ -192,7 +133,7 @@ namespace SpaceCowboy
             Vector3 ground = transform.TransformPoint(new Vector3(x, 0f, z));
             foreach (var hit in hits)
             {
-                if (hit.rigidbody != null || hit.transform.IsChildOf(transform)) continue; // not the craft, ball or goals
+                if (hit.rigidbody != null || hit.transform.IsChildOf(transform)) continue; // not the ships or goals
                 if (hit.distance < best) { best = hit.distance; ground = hit.point; }
             }
             return ground;

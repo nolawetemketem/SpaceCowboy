@@ -14,13 +14,15 @@ namespace SpaceCowboy
         public static readonly Color Red = Hex("#d9261c");
         public static readonly Color Blush = Hex("#e8423a");
         public static readonly Color Crt = Hex("#0b0907");    // CRT black
-        public static readonly Color Green = Hex("#39d26b");  // LED phosphor
+        public static readonly Color LEDGreen = Hex("#5fe704");  // LED phosphor
         public static readonly Color CraftAccent = Hex("#c8352a");
 
         // Ed's gear (the floating menu screen): beige case, grey metal.
         public static readonly Color Case = Hex("#d9c7a0");
         public static readonly Color Lid = Hex("#9da3a4");
         public static readonly Color Hinge = Hex("#6d7375");
+
+        public static readonly Color HologramBlue = Palette.Hex("#56e6ff");
 
         /// <summary>"#rrggbb" to a Color. Plain C#, so it's safe in field initializers.</summary>
         public static Color Hex(string hex)
@@ -29,7 +31,16 @@ namespace SpaceCowboy
             return new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
         }
 
-        static Shader toonShader;
+        static Shader toonShader, hologramShader;
+
+        /// <summary>A new material with the SpaceCowboy/Hologram shader: see-through light with scanlines.</summary>
+        public static Material Hologram(Color color)
+        {
+            if (!hologramShader) hologramShader = Shader.Find("SpaceCowboy/Hologram");
+            var m = new Material(hologramShader);
+            m.SetColor("_HoloColor", color);
+            return m;
+        }
 
         /// <summary>A new material with the SpaceCowboy/Toon shader: flat light bands, colored shadows, ink outlines.</summary>
         public static Material Toon(Color color, Texture texture = null)
