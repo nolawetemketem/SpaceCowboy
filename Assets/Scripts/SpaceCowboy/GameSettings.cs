@@ -30,13 +30,20 @@ namespace SpaceCowboy
             {
                 get
                 {
-                    value ??= PlayerPrefs.GetFloat(saveKey, defaultValue);
+                    if (value == null)
+                    {
+                        value = PlayerPrefs.GetFloat(saveKey, defaultValue);
+                        // A saved copy of the default is forgotten, so a default edited in this file takes effect.
+                        if (Mathf.Approximately(value.Value, defaultValue)) PlayerPrefs.DeleteKey(saveKey);
+                    }
                     return value.Value;
                 }
                 set
                 {
                     this.value = Mathf.Clamp(Mathf.Round(value / Step) * Step, Min, Max);
-                    PlayerPrefs.SetFloat(saveKey, this.value.Value);
+                    // Only a change from the default is saved, so editing a default in this file still takes effect.
+                    if (Mathf.Approximately(this.value.Value, defaultValue)) PlayerPrefs.DeleteKey(saveKey);
+                    else PlayerPrefs.SetFloat(saveKey, this.value.Value);
                 }
             }
 

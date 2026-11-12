@@ -8,7 +8,8 @@ namespace SpaceCowboy
     /// Destroying and bringing back a ship, for any ship model:
     ///   1. Health runs out: the ship vanishes and a Wreck takes its place (pieces burst, fall, disintegrate).
     ///   2. WreckGone: whoever owns the ship moves it to its respawn spot and calls Materialize.
-    ///   3. The ship is projected as a hologram from the bottom up, stutters, and turns solid.
+    ///   3. An LED wireframe of the ship traces itself along the model's edges, corner to corner,
+    ///      a faint glow fills in the surface, and the real ship takes over as the grid fades.
     ///   4. Materialized: the ship has full health and can be hit again.
     /// </summary>
     [RequireComponent(typeof(Damageable))]
@@ -31,8 +32,12 @@ namespace SpaceCowboy
         public float waitAfterWreck = 0.4f;
 
         [Header("Coming back")]
-        [Tooltip("How long the holographic projection takes.")]
-        public float materializeSeconds = 1.6f;
+        [Tooltip("How long the whole return takes, from the first line of the grid to the solid ship.")]
+        public float materializeSeconds = 2.6f;
+        [Tooltip("How much of that time the grid spends drawing itself.")]
+        [Range(0.2f, 0.8f)] public float traceShare = 0.55f;
+        [Tooltip("How thick the grid's lines are, as a share of the ship's size.")]
+        public float lineThickness = 0.0035f;
 
         public Color hologramColor = Palette.LEDGreen;
 
@@ -40,6 +45,11 @@ namespace SpaceCowboy
         static readonly int SweepAmountId = Shader.PropertyToID("_SweepAmount");
         static readonly int SweepBottomId = Shader.PropertyToID("_SweepBottom");
         static readonly int SweepHeightId = Shader.PropertyToID("_SweepHeight");
+        static readonly int HoloColorId = Shader.PropertyToID("_HoloColor");
+        static readonly int ProgressId = Shader.PropertyToID("_Progress");
+        static readonly int FadeId = Shader.PropertyToID("_Fade");
+        static readonly int WireColorId = Shader.PropertyToID("_WireColor");
+        const float SolidAt = 0.84f; // the share of the time when the real ship takes over
 
         /// <summary>The last piece of the wreck has disintegrated: time to move the ship and call Materialize.</summary>
         public event Action WreckGone;
@@ -58,7 +68,9 @@ namespace SpaceCowboy
         Bounds modelBounds; // the whole model, relative to the ship
         float totalPartSize;
 
-        Material projection;
+        Material projection, wireMaterial;
+        List<Renderer> wires;
+        bool burst;
         Material[][] solidMaterials;
         Material[][] projectionMaterials;
         Transform scanPlate;
@@ -102,6 +114,11 @@ namespace SpaceCowboy
                 pieceCounts[part] = Mathf.Max(1, Mathf.RoundToInt(pieces * part.bounds.size.magnitude / Mathf.Max(totalPartSize, 0.001f)));
                 ShipShatter.Split(mesh, pieceCounts[part]);
             }
+
+            // Everything else the explosion and the return need is made now too, so neither one stalls the game.
+            BuildProjection();
+            ShipFx.Prewarm();
+            Wreck.Prewarm();
         }
 
         /// <summary>The mesh a renderer draws, if it draws one.</summary>
@@ -115,8 +132,9 @@ namespace SpaceCowboy
         /// <summary>Bigger parts break into more pieces.</summary>
         public int PiecesFor(Renderer part) => pieceCounts[part];
 
+        /// <summary>Blow the ship up on the spot, for testing.</summary>
         [ContextMenu("Destroy this ship (test)")]
-        void DestroyForTest()
+        public void DestroyForTest()
         {
             if (Application.isPlaying && !Wrecked) health.TakeDamage(health.Health, gameObject);
         }
@@ -138,10 +156,15 @@ namespace SpaceCowboy
         public void Materialize()
         {
             if (!Wrecked || projecting) return;
-            if (!projection) BuildProjection();
 
-            projection.SetFloat(SweepAmountId, 1f);
-            projection.SetFloat(RevealId, 0f);
+            // The surface glow has no blocks: it's all there and just fades in.
+            projection.SetFloat(SweepAmountId, 0f);
+            projection.SetFloat(RevealId, 1f);
+            SetFillGlow(0f);
+            wireMaterial.SetFloat(ProgressId, 0f);
+            wireMaterial.SetFloat(FadeId, 1f);
+            ShowWires(true);
+            burst = false;
             solidMaterials = new Material[parts.Count][];
             projectionMaterials = new Material[parts.Count][];
             for (int i = 0; i < parts.Count; i++)
@@ -161,6 +184,11 @@ namespace SpaceCowboy
         void BuildProjection()
         {
             projection = Palette.Hologram(hologramColor);
+            wireMaterial = new Material(Shader.Find("SpaceCowboy/Wireframe"));
+            wireMaterial.SetColor(WireColorId, hologramColor);
+            // The grid starts from the middle of the ship's underside.
+            Vector3 start = modelBounds.center - Vector3.up * modelBounds.extents.y;
+            wires = ShipWireframe.Build(transform, parts, start, modelBounds.size.magnitude * lineThickness, wireMaterial);
             Color glow = hologramColor;
             glow.a = 0.2f;
             // scanPlateMaterial = Palette.Unlit(glow);
@@ -177,50 +205,56 @@ namespace SpaceCowboy
             projected += Time.deltaTime;
             float f = projected / materializeSeconds;
 
-            // The first part of the time builds the ship from the bottom up.
-            float build = Mathf.Clamp01(f / 0.68f);
-            Vector3 lowest = transform.TransformPoint(modelBounds.center) - Vector3.up * modelBounds.extents.y;
-            projection.SetFloat(SweepBottomId, lowest.y);
-            projection.SetFloat(SweepHeightId, modelBounds.size.y);
-            projection.SetFloat(RevealId, build);
+            // 1. The grid draws itself along the ship's edges, quick at first and easing in at the end.
+            float trace = Mathf.Clamp01(f / traceShare);
+            wireMaterial.SetFloat(ProgressId, 1f - (1f - trace) * (1f - trace));
 
-            // scanPlate.gameObject.SetActive(build < 1f);
-            // scanPlate.position = lowest + Vector3.up * (modelBounds.size.y * build);
-            EmitBuildMotes(build);
+            // 2. Near the end of the drawing, a faint glow fills in between the lines.
+            float fill = Mathf.Clamp01((f - traceShare * 0.8f) / (SolidAt - traceShare * 0.8f));
+            SetFillGlow(fill * 0.45f);
 
-            // At the end it stutters between hologram and solid, like a signal locking on.
-            // if (f > 0.84f) ShowSolid(Mathf.FloorToInt(projected * 24f) % 2 == 0);
+            // 3. The real ship takes over with a burst of light, and the grid fades off it.
+            if (f >= SolidAt)
+            {
+                if (!burst) BecomeSolid();
+                wireMaterial.SetFloat(FadeId, 1f - Mathf.Clamp01((f - SolidAt) / (1f - SolidAt)));
+            }
             if (f >= 1f) FinishMaterializing();
         }
 
-        void EmitBuildMotes(float build)
+        void SetFillGlow(float alpha)
         {
-            if (build >= 1f) return;
-            moteTimer -= Time.deltaTime;
-            if (moteTimer > 0f) return;
-            moteTimer = 0.02f;
+            Color c = hologramColor;
+            c.a = alpha;
+            projection.SetColor(HoloColorId, c);
+        }
+
+        void ShowWires(bool on)
+        {
+            foreach (var wire in wires) wire.gameObject.SetActive(on);
+        }
+
+        void BecomeSolid()
+        {
+            burst = true;
+            ShowSolid(true);
             float size = modelBounds.extents.magnitude;
-            Vector3 local = new Vector3(UnityEngine.Random.Range(-0.6f, 0.6f) * modelBounds.size.x, 0f, UnityEngine.Random.Range(-0.6f, 0.6f) * modelBounds.size.z);
-            // ShipFx.Emit(scanPlate.position + transform.rotation * local, Vector3.up * (size * UnityEngine.Random.Range(0.5f, 2f)),
-            //     size * UnityEngine.Random.Range(0.01f, 0.03f), UnityEngine.Random.Range(0.3f, 0.7f), hologramColor);
+            
+            // Vector3 centre = transform.TransformPoint(modelBounds.center);
+            // for (int i = 0; i < 40; i++)
+            //     ShipFx.Emit(centre, UnityEngine.Random.onUnitSphere * (size * UnityEngine.Random.Range(2f, 5f)),
+            //         size * UnityEngine.Random.Range(0.012f, 0.03f), UnityEngine.Random.Range(0.25f, 0.55f), hologramColor);
         }
 
         void FinishMaterializing()
         {
             projecting = false;
             Wrecked = false;
-            ShowSolid(true);
-            // scanPlate.gameObject.SetActive(false);
+            if (!burst) BecomeSolid();
+            ShowWires(false);
             health.Restore();
             SetCollidersOn(true);
             Hold(false);
-
-            float size = modelBounds.extents.magnitude;
-            Vector3 centre = transform.TransformPoint(modelBounds.center);
-            for (int i = 0; i < 40; i++)
-                ShipFx.Emit(centre, UnityEngine.Random.onUnitSphere * (size * UnityEngine.Random.Range(2f, 5f)),
-                    size * UnityEngine.Random.Range(0.012f, 0.03f), UnityEngine.Random.Range(0.25f, 0.55f), hologramColor);
-
             Materialized?.Invoke();
         }
 
@@ -261,6 +295,7 @@ namespace SpaceCowboy
         void OnDestroy()
         {
             if (projection) Destroy(projection);
+            if (wireMaterial) Destroy(wireMaterial);
             // if (scanPlateMaterial) Destroy(scanPlateMaterial);
         }
     }

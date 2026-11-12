@@ -31,9 +31,19 @@ namespace SpaceCowboy
         public float spread = 0.35f;
 
         [Header("Look")]
+        [Tooltip("The laser's color. Its core always burns white.")]
         public Color bulletColor = Palette.Amber;
-        public float bulletLength = 7f;
-        public float bulletWidth = 0.45f;
+        [Tooltip("How long each laser bolt is.")]
+        public float bulletLength = 14f;
+        [Tooltip("How wide the bolt's glow is.")]
+        public float glowWidth = 2.6f;
+        [Tooltip("How bright the bolt is.")]
+        public float brightness = 2f;
+        [Tooltip("How rich the glow's color is. 1 = the color as picked; higher = deeper and less washed out.")]
+        [Range(1f, 3f)] public float saturation = 1.6f;
+        [Tooltip("Each bolt lights up the ground and ships it passes, this far around it. 0 = no light.")]
+        public float lightRange = 16f;
+        public float lightIntensity = 4f;
 
         [Header("Barrels")]
         [Tooltip("Where shots come from; they take turns. Leave empty for two barrels at the front of the ship's collider, " +
@@ -119,6 +129,22 @@ namespace SpaceCowboy
 
             var bullet = spare.Count > 0 ? spare.Pop() : MakeBullet();
             bullet.Launch(this, body, muzzle, direction);
+
+            // A few sparks spit from the barrel, riding along with the ship.
+            Vector3 shipVelocity = body ? body.linearVelocity : Vector3.zero;
+            for (int i = 0; i < 3; i++)
+                ShipFx.Emit(muzzle, shipVelocity + (direction + Random.insideUnitSphere * 0.4f) * Random.Range(15f, 35f),
+                    Random.Range(0.12f, 0.25f), Random.Range(0.05f, 0.12f), ShipFx.SparkHot);
+        }
+
+        /// <summary>Sparks where a bolt hits something, thrown back off the surface.</summary>
+        public void ShowImpact(Vector3 point, Vector3 normal)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                Vector3 velocity = (normal + Random.insideUnitSphere * 0.9f).normalized * Random.Range(8f, 35f);
+                ShipFx.Emit(point + normal * 0.2f, velocity, Random.Range(0.15f, 0.35f), Random.Range(0.15f, 0.4f), ShipFx.Spark());
+            }
         }
 
         Vector3 NextMuzzle()
@@ -137,11 +163,48 @@ namespace SpaceCowboy
         Projectile MakeBullet()
         {
             if (!bulletRoot) bulletRoot = new GameObject(name + " Bullets").transform;
-            if (!bulletMaterial) bulletMaterial = Palette.Unlit(bulletColor);
-            var go = Palette.Shape(PrimitiveType.Cube, "Bullet", bulletRoot, Vector3.zero,
-                new Vector3(bulletWidth, bulletWidth, bulletLength), bulletMaterial);
-            go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (!bulletMaterial)
+            {
+                bulletMaterial = new Material(Shader.Find("SpaceCowboy/Laser"));
+                bulletMaterial.SetColor("_LaserColor", bulletColor);
+                bulletMaterial.SetFloat("_Width", glowWidth);
+                bulletMaterial.SetFloat("_Intensity", brightness);
+                bulletMaterial.SetFloat("_Saturation", saturation);
+            }
+
+            var go = new GameObject("Laser Bolt");
+            go.transform.SetParent(bulletRoot, false);
+            go.AddComponent<MeshFilter>().sharedMesh = BoltMesh();
+            var look = go.AddComponent<MeshRenderer>();
+            look.sharedMaterial = bulletMaterial;
+            look.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            look.receiveShadows = false;
+
+            if (lightRange > 0f)
+            {
+                var glow = go.AddComponent<Light>();
+                glow.type = LightType.Point;
+                glow.color = bulletColor;
+                glow.range = lightRange;
+                glow.intensity = lightIntensity;
+                glow.shadows = LightShadows.None;
+            }
             return go.AddComponent<Projectile>();
+        }
+
+        static Mesh boltMesh;
+
+        /// <summary>Four corners from the tail (z = -1) to the head (z = 0). The laser shader builds the camera-facing card from them.</summary>
+        static Mesh BoltMesh()
+        {
+            if (boltMesh) return boltMesh;
+            boltMesh = new Mesh { name = "Laser Bolt" };
+            boltMesh.vertices = new[] { new Vector3(0, 0, -1), new Vector3(0, 0, -1), new Vector3(0, 0, 0), new Vector3(0, 0, 0) };
+            boltMesh.uv = new[] { new Vector2(-1, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(-1, 1) };
+            boltMesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+            // The strip is spread out in the shader, so give it a box big enough to never be culled by mistake.
+            boltMesh.bounds = new Bounds(new Vector3(0, 0, -0.5f), new Vector3(8f, 8f, 2f));
+            return boltMesh;
         }
 
         /// <summary>A bullet that's done goes back to be reused.</summary>

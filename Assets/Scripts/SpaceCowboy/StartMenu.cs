@@ -21,15 +21,17 @@ namespace SpaceCowboy
         /// <summary>The screen's visible area, the size the menu is drawn at on it.</summary>
         public static readonly Vector2 ScreenSize = new Vector2(0.74f, 0.48f);
         /// <summary>The menu is laid out at this many pixels, then scaled onto the screen.</summary>
-        static readonly Vector2 MenuPixels = new Vector2(540f, 351f);
+        public static readonly Vector2 MenuPixels = new Vector2(540f, 351f);
         static readonly Vector3 Frame = new Vector3(0.86f, 0.62f, 0.07f);
+        /// <summary>The whole front of the frame, bezel and all, at the same pixel scale as the menu.</summary>
+        public static Vector2 FramePixels => new Vector2(MenuPixels.x * Frame.x / ScreenSize.x, MenuPixels.y * Frame.y / ScreenSize.y);
         const float StickThreshold = 0.6f;
 
         enum Item { Training, Controls, Local, Online, Time }
         static readonly (Item id, string label, bool comingSoon)[] Items =
         {
             (Item.Training, "TRAINING", false),
-            (Item.Controls, "CONTROLS & SETTINGS", false),
+            (Item.Controls, "SETTINGS", false),
             (Item.Local, "1V1 LOCAL", true),
             (Item.Online, "ONLINE", true),
             (Item.Time, "TIME OF DAY", false),
@@ -73,11 +75,23 @@ namespace SpaceCowboy
         /// <summary>Stop taking input (a mode was chosen), but stay on screen while it flies away.</summary>
         public void Lock() => active = false;
 
+        int ignoreInputUntil;
+
+        /// <summary>Take input again (back from Training), starting on the top row.
+        /// The press that brought us back is ignored, so it can't choose something here too.</summary>
+        public void Unlock()
+        {
+            active = true;
+            ignoreInputUntil = Time.frameCount + 1;
+            stickWasHeld = true;
+            Select(0);
+        }
+
         void Update()
         {
             cursor.enabled = Time.unscaledTime % 1f < 0.5f; // blink: 1s steps(1)
             for (int i = 0; i < rows.Length; i++) Shake(rows[i]);
-            if (active) ReadInput();
+            if (active && Time.frameCount > ignoreInputUntil) ReadInput();
         }
 
         void ReadInput()
@@ -156,7 +170,7 @@ namespace SpaceCowboy
 
         void ShowTime()
         {
-            string name = time switch { TimeOfDaySetting.Day => "DAY", TimeOfDaySetting.Night => "NIGHT", _ => "AUTO (CLOCK)" };
+            string name = time switch { TimeOfDaySetting.Day => "DAY", TimeOfDaySetting.Night => "NIGHT", _ => "AUTO" };
             timeValue.text = $"‹ {name} ›";
         }
 
@@ -224,8 +238,18 @@ namespace SpaceCowboy
             return m;
         }
 
-        /// <summary>The frame's front: beige with scuffs, tape on a corner, a few stickers and a grinning emoticon.</summary>
-        static Texture2D FrameTexture()
+        static Texture2D frameTexture;
+
+        /// <summary>The frame's front: beige with scuffs, tape on a corner, a few stickers and a grinning emoticon.
+        /// Painted once and shared, so the in-game settings window can wear the same bezel.</summary>
+        public static Texture2D FrameTexture()
+        {
+            if (frameTexture) return frameTexture;
+            frameTexture = PaintFrame();
+            return frameTexture;
+        }
+
+        static Texture2D PaintFrame()
         {
             const int w = 1024, h = 738;
             var p = new TexturePainter(w, h, Palette.Case);
@@ -304,29 +328,45 @@ namespace SpaceCowboy
             // .hint: 10px below, 14px Courier Prime, dim amber.
             Line(page, "Hint", "↑↓ select · ENTER / Ⓐ choose", Fonts.MonoRegular, 14f, Palette.AmberDim, padX, y - 2f + 10f, 21f);
 
-            // Scanlines and a vignette on top, like an old screen.
-            var scan = new TexturePainter(1, 3, Color.clear);
-            scan.FillRect(new UnityEngine.Rect(0f, 0f, 1f, 1f), new Color(0f, 0f, 0f, 0.28f));
-            var scanImage = UI.Rect("Scanlines", canvasRect, Vector2.zero, Vector2.one).gameObject.AddComponent<RawImage>();
-            var scanTexture = scan.ToTexture(filter: FilterMode.Point);
-            scanTexture.wrapMode = TextureWrapMode.Repeat;
+            AddScreenEffects(canvasRect);
+
+            Select(0);
+            ShowTime();
+        }
+
+        static Texture2D scanTexture, vignetteTexture;
+
+        /// <summary>
+        /// Scanlines and a vignette over everything on a screen, like an old CRT. Add them last, so they sit on top.
+        /// The start menu and the in-game settings window both use this, so they look like the same screen.
+        /// </summary>
+        public static void AddScreenEffects(RectTransform screen)
+        {
+            if (!scanTexture)
+            {
+                var scan = new TexturePainter(1, 3, Color.clear);
+                scan.FillRect(new UnityEngine.Rect(0f, 0f, 1f, 1f), new Color(0f, 0f, 0f, 0.28f));
+                scanTexture = scan.ToTexture(filter: FilterMode.Point);
+                scanTexture.wrapMode = TextureWrapMode.Repeat;
+
+                var vignette = new TexturePainter(128, 83, Color.clear);
+                vignette.Shade((u, v) =>
+                {
+                    // radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.55) 100%), reaching the corners.
+                    float d = Mathf.Sqrt(((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f)) * 2f);
+                    return new Color(0f, 0f, 0f, 0.55f * Mathf.Clamp01((d - 0.5f) / 0.5f));
+                });
+                vignetteTexture = vignette.ToTexture();
+            }
+
+            var scanImage = UI.Rect("Scanlines", screen, Vector2.zero, Vector2.one).gameObject.AddComponent<RawImage>();
             scanImage.texture = scanTexture;
             scanImage.uvRect = new UnityEngine.Rect(0f, 0f, 1f, MenuPixels.y / 3f);
             scanImage.raycastTarget = false;
 
-            var vignette = new TexturePainter(128, 83, Color.clear);
-            vignette.Shade((u, v) =>
-            {
-                // radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.55) 100%), reaching the corners.
-                float d = Mathf.Sqrt(((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f)) * 2f);
-                return new Color(0f, 0f, 0f, 0.55f * Mathf.Clamp01((d - 0.5f) / 0.5f));
-            });
-            var vignetteImage = UI.Rect("Vignette", canvasRect, Vector2.zero, Vector2.one).gameObject.AddComponent<RawImage>();
-            vignetteImage.texture = vignette.ToTexture();
+            var vignetteImage = UI.Rect("Vignette", screen, Vector2.zero, Vector2.one).gameObject.AddComponent<RawImage>();
+            vignetteImage.texture = vignetteTexture;
             vignetteImage.raycastTarget = false;
-
-            Select(0);
-            ShowTime();
         }
 
         void ShowControls()
@@ -366,10 +406,10 @@ namespace SpaceCowboy
             row.label.alignment = TextAlignmentOptions.MidlineLeft;
             if (item.comingSoon)
             {
-                // .tag: 700 12px Oswald, letter-spacing 0.12em, blush red
-                row.tag = UI.Text("Tag", row.rect, "COMING SOON", 12f, Palette.Blush);
-                row.tag.font = Fonts.Condensed;
-                row.tag.characterSpacing = 12f;
+                // // .tag: 700 12px Oswald, letter-spacing 0.12em, blush red
+                // row.tag = UI.Text("Tag", row.rect, "COMING SOON", 12f, Palette.Blush);
+                // row.tag.font = Fonts.Condensed;
+                // row.tag.characterSpacing = 12f;
             }
             else if (item.id == Item.Time)
             {

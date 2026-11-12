@@ -28,15 +28,28 @@ namespace SpaceCowboy
                 this.defaultPath = defaultPath;
             }
 
-            /// <summary>The input's name on the device, like "leftShift" or "rightStick/up".</summary>
+            /// <summary>
+            /// The input's name on the device, like "leftShift" or "rightStick/up".
+            /// Only a change from the default is saved. A mapping the player never changed isn't saved at all,
+            /// so it always follows the default written in this file, even after that default is edited.
+            /// </summary>
             public string Path
             {
-                get => path ??= PlayerPrefs.GetString(saveKey, defaultPath);
+                get
+                {
+                    if (path == null)
+                    {
+                        ForgetSavedDefaults();
+                        path = PlayerPrefs.GetString(saveKey, defaultPath);
+                    }
+                    return path;
+                }
                 set
                 {
                     path = value;
                     foundOn = null; // look it up again next time it's read
-                    PlayerPrefs.SetString(saveKey, value);
+                    if (value == defaultPath) PlayerPrefs.DeleteKey(saveKey);
+                    else PlayerPrefs.SetString(saveKey, value);
                 }
             }
 
@@ -86,19 +99,54 @@ namespace SpaceCowboy
             public string ControllerName => NameOfControllerInput(controller.Path);
         }
 
-        public static readonly Mechanic NoseUp = new("NoseUp", "NOSE UP", "w", "leftStick/up");
-        public static readonly Mechanic NoseDown = new("NoseDown", "NOSE DOWN", "s", "leftStick/down");
+        public static readonly Mechanic NoseUp = new("NoseUp", "NOSE UP", "s", "leftStick/down");
+        public static readonly Mechanic NoseDown = new("NoseDown", "NOSE DOWN", "w", "leftStick/up");
         public static readonly Mechanic TurnLeft = new("TurnLeft", "TURN LEFT", "a", "leftStick/left");
         public static readonly Mechanic TurnRight = new("TurnRight", "TURN RIGHT", "d", "leftStick/right");
         public static readonly Mechanic Accelerate = new("Accelerate", "ACCELERATE", "space", "rightTrigger");
         public static readonly Mechanic Brake = new("Brake", "BRAKE / REVERSE", "c", "leftTrigger");
         public static readonly Mechanic Fire = new("Fire", "FIRE", "enter", "buttonSouth");
         public static readonly Mechanic Boost = new("Boost", "BOOST", "leftShift", "buttonEast");
-        public static readonly Mechanic FlipUp = new("FlipUp", "FLIP UP", "upArrow", "rightStick/up");
-        public static readonly Mechanic FlipDown = new("FlipDown", "FLIP DOWN", "downArrow", "rightStick/down");
+        public static readonly Mechanic FlipUp = new("FlipUp", "FLIP UP", "downArrow", "rightStick/down");
+        public static readonly Mechanic FlipDown = new("FlipDown", "FLIP DOWN", "upArrow", "rightStick/up");
         public static readonly Mechanic FlipLeft = new("FlipLeft", "FLIP LEFT", "leftArrow", "rightStick/left");
         public static readonly Mechanic FlipRight = new("FlipRight", "FLIP RIGHT", "rightArrow", "rightStick/right");
         public static readonly Mechanic ResetShip = new("ResetShip", "RESET SHIP", "r", "select");
+
+        // The first version of the mapping saved every input, even unchanged ones, so a saved copy of an
+        // old default would hide a new one. Once, forget any saved input that's still that first default;
+        // the inputs a player really changed stay.
+        const string ForgotDefaultsKey = "SpaceCowboy.Bind.ForgotSavedDefaults";
+        static bool forgotDefaults;
+        static readonly (string mechanic, string keyboard, string controller)[] FirstDefaults =
+        {
+            ("NoseUp", "w", "leftStick/up"), ("NoseDown", "s", "leftStick/down"),
+            ("TurnLeft", "a", "leftStick/left"), ("TurnRight", "d", "leftStick/right"),
+            ("Accelerate", "space", "rightTrigger"), ("Brake", "c", "leftTrigger"),
+            ("Fire", "enter", "buttonSouth"), ("Boost", "leftShift", "buttonEast"),
+            ("FlipUp", "upArrow", "rightStick/up"), ("FlipDown", "downArrow", "rightStick/down"),
+            ("FlipLeft", "leftArrow", "rightStick/left"), ("FlipRight", "rightArrow", "rightStick/right"),
+            ("ResetShip", "r", "select"),
+        };
+
+        static void ForgetSavedDefaults()
+        {
+            if (forgotDefaults) return;
+            forgotDefaults = true;
+            if (PlayerPrefs.GetInt(ForgotDefaultsKey, 0) == 1) return;
+            foreach (var (mechanic, keyboard, controller) in FirstDefaults)
+            {
+                Forget($"SpaceCowboy.Bind.{mechanic}.Keyboard", keyboard);
+                Forget($"SpaceCowboy.Bind.{mechanic}.Controller", controller);
+            }
+            PlayerPrefs.SetInt(ForgotDefaultsKey, 1);
+            PlayerPrefs.Save();
+
+            static void Forget(string key, string firstDefault)
+            {
+                if (PlayerPrefs.GetString(key, null) == firstDefault) PlayerPrefs.DeleteKey(key);
+            }
+        }
 
         public static readonly Mechanic[] All =
         {

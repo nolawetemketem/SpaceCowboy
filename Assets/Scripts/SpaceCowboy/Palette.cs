@@ -6,6 +6,7 @@ namespace SpaceCowboy
     public static class Palette
     {
         public static readonly Color Amber = Hex("#ff8a1f");
+        public static readonly Color AmberShip = Hex("#b47133");
         public static readonly Color AmberDim = Hex("#a8521a");
         public static readonly Color Teal = Hex("#3e8f90");
         public static readonly Color TealGlow = Hex("#8fe3dc");
@@ -15,7 +16,10 @@ namespace SpaceCowboy
         public static readonly Color Blush = Hex("#e8423a");
         public static readonly Color Crt = Hex("#0b0907");    // CRT black
         public static readonly Color LEDGreen = Hex("#5fe704");  // LED phosphor
-        public static readonly Color CraftAccent = Hex("#c8352a");
+
+        public static readonly Color Craft = Hex("#b8b8b8");
+
+        public static readonly Color CraftAccent = Hex("#979595");
 
         // Ed's gear (the floating menu screen): beige case, grey metal.
         public static readonly Color Case = Hex("#d9c7a0");

@@ -10,6 +10,7 @@ namespace SpaceCowboy
     ///   Menu:     the camera slowly circles the field; Ed's floating screen hovers in front of it.
     ///   Leaving:  TRAINING was chosen; the screen dips as its thrusters spool up, then launches straight up out of view.
     ///   Training: the camera swoops down behind the craft and you play. R resets the craft.
+    ///             MAIN MENU on the settings (Esc or the controller's Menu button) goes back to the menu.
     /// </summary>
     public class SpaceCowboyGame : MonoBehaviour
     {
@@ -61,11 +62,13 @@ namespace SpaceCowboy
 
             hud = Hud.Create();
             hud.Controls.Closed += input.Clear; // presses made in the settings don't reach the ship
+            hud.MainMenuChosen += BackToMenu;
             arena.Build();
             if (timeOfDay) timeOfDay.UseField(arena.transform);
 
             // Any ship can carry a ShipWeapon. If the Fighter doesn't have one in the scene, give it the default.
-            if (craft.spaceFlight)
+            // Hovercraft mode (unused: Space Flight is the only mode now). Uncomment to bring it back.
+            // if (craft.spaceFlight)
             {
                 var weapon = craft.GetComponent<ShipWeapon>();
                 if (!weapon) weapon = craft.gameObject.AddComponent<ShipWeapon>();
@@ -105,6 +108,12 @@ namespace SpaceCowboy
                 return;
             }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Testing only: K blows up your ship. (Using the Inspector's menu for this pauses the game while the menu is open.)
+            if (destruction && !wrecked && Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame)
+                destruction.DestroyForTest();
+#endif
+
             // Training safety valve. A destroyed ship is already on its way back.
             if (input.TakeResetCraft() && !wrecked)
             {
@@ -137,6 +146,20 @@ namespace SpaceCowboy
             menu.Lock();
             state = State.Leaving;
             leavingTime = 0f;
+        }
+
+        /// <summary>MAIN MENU from the settings in Training: the floating screen comes back and the ship waits at its start spot.</summary>
+        void BackToMenu()
+        {
+            if (state != State.Training) return;
+            state = State.Menu;
+            hud.Show(false);
+            follow.enabled = false;
+            craft.ResetTo(arena.CraftStartPosition, arena.CraftStartRotation);
+            craft.controlsEnabled = false;
+            input.Clear();
+            menu.gameObject.SetActive(true);
+            menu.Unlock();
         }
 
         /// <summary>Start (or restart) Training: craft at its start spot.</summary>
@@ -232,7 +255,7 @@ namespace SpaceCowboy
         /// <summary>Cream body, red engines (the web game's fighterPartColor). Only while playing; the assets stay as they are.</summary>
         void PaintFighter()
         {
-            var body = Palette.Toon(Palette.Hex("#f1e6cf"));
+            var body = Palette.Toon(Palette.Craft);
             var accent = Palette.Toon(Palette.CraftAccent);
             var animator = craft.GetComponent<FighterAnimator>();
             foreach (var r in craft.GetComponentsInChildren<Renderer>(true))

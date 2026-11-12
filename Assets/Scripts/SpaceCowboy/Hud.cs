@@ -34,16 +34,29 @@ namespace SpaceCowboy
             Show(false);
         }
 
+        /// <summary>MAIN MENU was chosen on the settings panel.</summary>
+        public event System.Action MainMenuChosen;
+
         /// <summary>The controls and settings panel, opened during play. It starts closed.</summary>
         public ControlsPanel Controls { get; private set; }
 
         void BuildControlsPanel()
         {
-            var holder = UI.Rect("Settings Window", root.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            holder.sizeDelta = new Vector2(540f, 351f);
-            holder.localScale = Vector3.one * 1.8f;
-            UI.Box(holder, new Color(0.03f, 0.03f, 0.03f, 0.94f), 6f, Palette.Amber, 1f);
-            Controls = new ControlsPanel(holder);
+            // The same battered screen as the start menu: Ed's beige bezel around a black CRT,
+            // with scanlines and a vignette over the page.
+            var centre = new Vector2(0.5f, 0.5f);
+            var holder = UI.Rect("Settings Window", root.transform, centre, centre);
+            holder.sizeDelta = StartMenu.FramePixels;
+            holder.localScale = Vector3.one * 1.45f;
+            var bezel = holder.gameObject.AddComponent<RawImage>();
+            bezel.texture = StartMenu.FrameTexture();
+            bezel.color = new Color(0.8f, 0.78f, 0.74f); // a touch of shade, like the lit 3D screen on the menu
+
+            var screen = UI.Rect("Screen", holder, centre, centre);
+            screen.sizeDelta = StartMenu.MenuPixels;
+            screen.gameObject.AddComponent<Image>().color = Palette.Crt;
+            Controls = new ControlsPanel(screen, () => MainMenuChosen?.Invoke());
+            StartMenu.AddScreenEffects(screen);
             holder.gameObject.SetActive(false);
             Controls.Closed += () => holder.gameObject.SetActive(false);
             controlsWindow = holder;
@@ -86,19 +99,20 @@ namespace SpaceCowboy
             hitMarker.enabled = false;
 
             // How many you've destroyed, at the top of the screen. Appears after the first one.
-            kills = UI.Text("Targets Down", root.transform, "", 22f, Palette.LEDGreen);
+            kills = UI.Text("X_X ", root.transform, "", 22f, Palette.LEDGreen);
             kills.font = Fonts.Lcd;
             kills.alignment = TMPro.TextAlignmentOptions.Top;
             kills.rectTransform.offsetMax = new Vector2(0f, -18f);
-            kills.enabled = false;
+            kills.text = $"X_X {killCount:00}";
+            kills.enabled = true;
 
             weapon.LandedHit += _ => ShowHit(Color.white, 0.1f);
             weapon.Destroyed += _ =>
             {
                 ShowHit(Palette.Blush, 0.3f);
                 killCount++;
-                kills.text = $"TARGETS DOWN {killCount:00}";
-                kills.enabled = true;
+                kills.text = $"X_X {killCount:00}";
+                // kills.enabled = true;
             };
         }
 

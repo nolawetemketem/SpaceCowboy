@@ -310,6 +310,7 @@ MonoBehaviour:
   turnSpeed: 6
   lookSpeed: 140
   recenterSpeed: 3
+  groundClearance: 3
 --- !u!1 &391589889
 GameObject:
   m_ObjectHideFlags: 0
@@ -505,13 +506,11 @@ MonoBehaviour:
   goalBoxDepth: 26
   goalHalfWidth: 19
   goalHeight: 16
-  goalDepth: 10
   postThickness: 2
   goalAColor: {r: 1, g: 0.5411765, b: 0.12156863, a: 1}
   goalBColor: {r: 0.24313726, g: 0.56078434, b: 0.5647059, a: 1}
   craftStartDistance: 90
   craftStartHeight: 6
-  ballDropHeight: 10
 --- !u!4 &509658609
 Transform:
   m_ObjectHideFlags: 0
@@ -1218,7 +1217,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d2caeeb41bbc4f5ea56d697988b9cb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpaceCowboy.CraftInput
-  deadZone: 0.15
 --- !u!114 &1222229975
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1231,6 +1229,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1797c7d6973fc441e8a0c96efdd29f7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpaceCowboy.HoverCraft
+  spaceFlight: 1
+  flightPitchRate: 130
+  flightYawRate: 110
+  flightTurnResponse: 7
+  flightGrip: 0.06
+  flightRollLeveling: 2.5
+  flightDrag: 0.25
+  flipSpeed: 600
+  flipSnap: 6000
+  flipHoldTime: 0.16
   hoverDistance: 6
   hoverForce: 30
   hoverDamping: 0.6
@@ -1344,6 +1352,7 @@ MonoBehaviour:
   timeOfDay: {fileID: 1314350882}
   webFighterColors: 1
   fieldOfView: 65
+  practiceTargets: 8
   skipMenu: 0
   orbitRadius: 250
   orbitHeight: 65

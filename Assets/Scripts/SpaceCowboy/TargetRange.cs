@@ -37,8 +37,8 @@ namespace SpaceCowboy
             foreach (var script in copy.GetComponentsInChildren<MonoBehaviour>(true)) Destroy(script);
             foreach (var part in copy.GetComponentsInChildren<Collider>(true)) Destroy(part);
 
-            var hull = Palette.Toon(Palette.Teal);
-            var accent = Palette.Toon(Palette.Amber);
+            var hull = Palette.Toon(Palette.AmberShip);
+            var accent = Palette.Toon(Palette.AmberDim);
             foreach (var part in copy.GetComponentsInChildren<Renderer>(true))
             {
                 var materials = part.sharedMaterials;

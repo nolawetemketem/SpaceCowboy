@@ -9,8 +9,9 @@ using UnityEngine.UI;
 namespace SpaceCowboy
 {
     /// <summary>
-    /// The player's sensitivities with the control mapping under them, all on one scrolling page. The start
-    /// menu and the in-game overlay each build one. Works with the mouse, the keyboard and a gamepad.
+    /// The player's settings, on two tabs so each fits on one screen: SENSITIVITY (how fast the ship
+    /// responds) and CONTROLS (which input does which mechanic). The start menu and the in-game overlay
+    /// each build one. Works with the mouse, the keyboard and a gamepad: Tab, LB or RB switch tabs.
     /// Choosing a mechanic asks for its new input, then asks the player to confirm it.
     /// Whoever owns it calls Tick every frame while it's open, so a press only ever reaches one screen.
     /// Laid out at 540 × 351, the size of the start menu's screen.
@@ -20,8 +21,17 @@ namespace SpaceCowboy
         const float Width = 540f, PadX = 34f, StickThreshold = 0.6f;
         const float TrackX = 230f, TrackWidth = 205f, ValueX = 447f;
         const float KeysX = 215f, ControllerX = 355f;
-        const float ListTop = 44f, ListBottom = 296f, RowHeight = 18f, SectionHeight = 15f, ScrollPerNotch = 18f;
+        const float TabBarY = 46f, TabBarHeight = 22f, TabsBottom = 72f;
+        const float SliderRow = 32f, MappingRow = 15.5f, ButtonY = 301f, ButtonHeight = 18f;
         const float FirstRepeatSeconds = 0.3f, RepeatSeconds = 0.06f;
+
+        const int Sensitivity = 0, Controls = 1, OnEveryTab = -1;
+        static readonly string[] TabNames = { "SENSITIVITY", "CONTROLS" };
+        static readonly string[] TabHints =
+        {
+            "↑↓ SELECT · LEFT / RIGHT ADJUST · TAB / LB / RB TABS · ESC / Ⓑ BACK",
+            "↑↓ SELECT · ENTER / Ⓐ CHANGE · TAB / LB / RB TABS · ESC / Ⓑ BACK",
+        };
 
         class Row
         {
@@ -31,8 +41,8 @@ namespace SpaceCowboy
             public ControlBindings.Mechanic mechanic; // mapping rows only
             public Action chosen;
             public EventTrigger events;
-            public bool inList;
-            public float top;
+            public int tab = OnEveryTab;
+            public bool isTabBar;
         }
 
         /// <summary>The panel has just closed.</summary>
@@ -40,14 +50,21 @@ namespace SpaceCowboy
         public bool IsOpen { get; private set; }
 
         readonly RectTransform page;
+        readonly RectTransform[] tabPages = new RectTransform[2];
+        readonly TextMeshProUGUI[] tabLabels = new TextMeshProUGUI[2];
+        readonly Image[] tabUnderlines = new Image[2];
         readonly List<Row> rows = new();
-        RectTransform content;
-        Image scrollThumb;
-        float contentHeight, scroll;
-        int selected;
+        readonly List<Row> visible = new(); // the tab bar, the current tab's rows, then the buttons
+        TextMeshProUGUI hint;
+        int tab, selected;
         bool stickWasHeld;
         int heldDirection;
         float repeatTimer;
+
+        // Like the start menu: amber text glows, except on the selected row, which is dark on amber.
+        readonly Material glow = Fonts.Glow(Fonts.Mono, new Color(1f, 0.54f, 0.12f, 0.55f), 0.35f);
+        readonly Material plain = Fonts.Mono.material;
+        readonly Material tabGlow = Fonts.Glow(Fonts.Condensed, new Color(0.97f, 0.84f, 0.11f, 0.35f), 0.5f);
 
         RectTransform rebindBox;
         TextMeshProUGUI rebindName, rebindPrompt, rebindWarning, rebindHint;
@@ -56,12 +73,13 @@ namespace SpaceCowboy
         ControlBindings.PressedInput newInput;
         bool hasNewInput;
 
-        float ListHeight => ListBottom - ListTop;
-        float MostScroll => Mathf.Max(0f, contentHeight - ListHeight);
+        readonly Action mainMenu;
 
-        public ControlsPanel(RectTransform parent)
+        /// <summary>Give mainMenu to add a MAIN MENU button (in Training); leave it out on the start menu itself.</summary>
+        public ControlsPanel(RectTransform parent, Action mainMenu = null)
         {
-            page = UI.Rect("Controls and Settings", parent, Vector2.zero, Vector2.one);
+            this.mainMenu = mainMenu;
+            page = UI.Rect("Settings", parent, Vector2.zero, Vector2.one);
             BuildPage();
             BuildRebindBox();
             page.gameObject.SetActive(false);
@@ -70,14 +88,13 @@ namespace SpaceCowboy
         public void Open()
         {
             IsOpen = true;
-            page.gameObject.SetActive(true);
-            page.SetAsLastSibling();
+            page.gameObject.SetActive(true); // it stays under the screen's scanlines
             var pad = Gamepad.current;
             stickWasHeld = pad != null && Mathf.Abs(pad.leftStick.ReadValue().y) > StickThreshold; // the push that got us here doesn't count
             heldDirection = 0;
             EndRebind();
-            Select(0);
-            ScrollTo(0f);
+            ShowTab(tab); // the tab you were on last time
+            Select(1);    // its first row, ready to use
             Refresh();
         }
 
@@ -109,7 +126,7 @@ namespace SpaceCowboy
                 return;
             }
 
-            int move = 0, direction = 0;
+            int move = 0, direction = 0, switchTab = 0;
             bool choose = false;
             if (keys != null)
             {
@@ -117,6 +134,7 @@ namespace SpaceCowboy
                 if (keys.downArrowKey.wasPressedThisFrame || keys.sKey.wasPressedThisFrame) move++;
                 if (keys.leftArrowKey.isPressed || keys.aKey.isPressed) direction--;
                 if (keys.rightArrowKey.isPressed || keys.dKey.isPressed) direction++;
+                if (keys.tabKey.wasPressedThisFrame) switchTab = keys.shiftKey.isPressed ? -1 : 1;
                 choose |= keys.enterKey.wasPressedThisFrame || keys.spaceKey.wasPressedThisFrame;
             }
             if (pad != null)
@@ -128,23 +146,18 @@ namespace SpaceCowboy
                 stickWasHeld = stickHeld;
                 if (pad.dpad.left.isPressed || stick.x < -StickThreshold) direction--;
                 if (pad.dpad.right.isPressed || stick.x > StickThreshold) direction++;
+                if (pad.leftShoulder.wasPressedThisFrame) switchTab = -1;
+                if (pad.rightShoulder.wasPressedThisFrame) switchTab = 1;
                 choose |= pad.buttonSouth.wasPressedThisFrame;
             }
 
-            var mouse = Mouse.current;
-            if (mouse != null && mouse.scroll.ReadValue().y != 0f)
-                ScrollTo(scroll - Mathf.Clamp(mouse.scroll.ReadValue().y, -1f, 1f) * ScrollPerNotch);
-
-            if (move != 0)
-            {
-                Select((selected + move + rows.Count) % rows.Count);
-                Reveal(rows[selected]);
-            }
+            if (switchTab != 0) SwitchTab(switchTab);
+            if (move != 0) Select((selected + move + visible.Count) % visible.Count);
             Adjust(Mathf.Clamp(direction, -1, 1));
-            if (choose) rows[selected].chosen?.Invoke();
+            if (choose) visible[selected].chosen?.Invoke();
         }
 
-        /// <summary>Holding left or right steps once, waits a moment, then keeps stepping.</summary>
+        /// <summary>Holding left or right steps once, waits a moment, then keeps stepping. On the tab bar it switches tabs, once per press.</summary>
         void Adjust(int direction)
         {
             if (direction == 0)
@@ -157,27 +170,52 @@ namespace SpaceCowboy
                 repeatTimer -= Time.unscaledDeltaTime;
                 if (repeatTimer > 0f) return;
                 repeatTimer = RepeatSeconds;
+                if (visible[selected].isTabBar) return;
             }
             else
             {
                 heldDirection = direction;
                 repeatTimer = FirstRepeatSeconds;
+                if (visible[selected].isTabBar)
+                {
+                    SwitchTab(direction);
+                    return;
+                }
             }
-            var setting = rows[selected].setting;
+            var setting = visible[selected].setting;
             if (setting == null) return;
             setting.Value += GameSettings.Setting.Step * direction;
-            Show(rows[selected]);
+            Show(visible[selected]);
+        }
+
+        void SwitchTab(int by)
+        {
+            var was = visible[selected];
+            ShowTab((tab + by + TabNames.Length) % TabNames.Length);
+            // On a row that belongs to the old tab, move to the new tab's first row; otherwise stay put.
+            Select(was.tab == OnEveryTab ? visible.IndexOf(was) : 1);
+        }
+
+        void ShowTab(int index)
+        {
+            tab = index;
+            for (int i = 0; i < tabPages.Length; i++) tabPages[i].gameObject.SetActive(i == tab);
+            visible.Clear();
+            foreach (var row in rows)
+                if (row.tab == OnEveryTab || row.tab == tab) visible.Add(row);
+            hint.text = TabHints[tab];
         }
 
         void Select(int index)
         {
-            selected = index;
-            for (int i = 0; i < rows.Count; i++)
+            selected = Mathf.Clamp(index, 0, visible.Count - 1);
+            foreach (var row in rows)
             {
-                bool on = i == selected;
-                var row = rows[i];
+                bool on = row == visible[selected];
                 row.band.color = on ? Palette.Amber : Color.clear;
                 row.label.color = on ? Palette.Crt : Palette.Amber;
+                row.label.fontSharedMaterial = on ? plain : glow;
+                if (row.isTabBar) ShowTabBar(on);
                 if (row.mechanic != null)
                 {
                     row.keys.color = on ? Palette.Crt : Palette.TealGlow;
@@ -187,6 +225,19 @@ namespace SpaceCowboy
                 row.value.color = on ? Palette.Crt : Palette.TealGlow;
                 row.track.color = on ? new Color(0f, 0f, 0f, 0.45f) : new Color(1f, 0.54f, 0.12f, 0.18f);
                 row.fill.color = on ? Palette.Crt : Palette.TealGlow;
+            }
+        }
+
+        /// <summary>The open tab is bright and underlined; the other is dim.</summary>
+        void ShowTabBar(bool focused)
+        {
+            for (int i = 0; i < tabLabels.Length; i++)
+            {
+                bool open = i == tab;
+                tabLabels[i].color = focused ? Palette.Crt : open ? Palette.Yellow : Palette.AmberDim;
+                tabLabels[i].fontSharedMaterial = open && !focused ? tabGlow : Fonts.Condensed.material;
+                tabUnderlines[i].enabled = open;
+                tabUnderlines[i].color = focused ? Palette.Crt : Palette.Amber;
             }
         }
 
@@ -208,27 +259,6 @@ namespace SpaceCowboy
                 row.keys.text = row.mechanic.KeyName;
                 row.controller.text = row.mechanic.ControllerName;
             }
-        }
-
-        // --- Scrolling ----------------------------------------------------------------------------
-
-        void ScrollTo(float y)
-        {
-            scroll = Mathf.Clamp(y, 0f, MostScroll);
-            content.anchoredPosition = new Vector2(0f, scroll);
-
-            // The little bar at the side shows how much more there is.
-            float thumbHeight = ListHeight * ListHeight / contentHeight;
-            float travel = MostScroll > 0f ? scroll / MostScroll : 0f;
-            StartMenu.Anchored(scrollThumb.rectTransform, Width - PadX + 10f, ListTop + travel * (ListHeight - thumbHeight), 3f, thumbHeight);
-        }
-
-        /// <summary>Scroll just enough to show this row. The space above it leaves its section's title in view.</summary>
-        void Reveal(Row row)
-        {
-            if (!row.inList) return;
-            if (row.top - SectionHeight < scroll) ScrollTo(row.top - SectionHeight);
-            else if (row.top + RowHeight > scroll + ListHeight) ScrollTo(row.top + RowHeight - ListHeight);
         }
 
         // --- Choosing a new input -----------------------------------------------------------------
@@ -295,73 +325,114 @@ namespace SpaceCowboy
 
         void BuildPage()
         {
-            StartMenu.Line(page, "Heading Shadow", "CONTROLS & SETTINGS", Fonts.Condensed, 26f, Palette.Red, PadX + 2f, 12f + 2f, 30f);
-            var heading = StartMenu.Line(page, "Heading", "CONTROLS & SETTINGS", Fonts.Condensed, 26f, Palette.Yellow, PadX, 12f, 30f);
+            StartMenu.Line(page, "Heading Shadow", "SETTINGS", Fonts.Condensed, 26f, Palette.Red, PadX + 2f, 12f + 2f, 30f);
+            var heading = StartMenu.Line(page, "Heading", "SETTINGS", Fonts.Condensed, 26f, Palette.Yellow, PadX, 12f, 30f);
             heading.fontSharedMaterial = Fonts.Glow(Fonts.Condensed, new Color(0.97f, 0.84f, 0.11f, 0.35f), 0.6f);
 
-            // The part that scrolls: it's cut off at the edges of this window.
-            var list = UI.Rect("List", page, new Vector2(0f, 1f), new Vector2(1f, 1f));
-            list.offsetMin = new Vector2(0f, -ListBottom);
-            list.offsetMax = new Vector2(0f, -ListTop);
-            list.gameObject.AddComponent<RectMask2D>();
-            content = UI.Rect("Content", list, new Vector2(0f, 1f), new Vector2(1f, 1f));
-            content.pivot = new Vector2(0.5f, 1f);
+            BuildTabBar();
+            for (int i = 0; i < tabPages.Length; i++)
+                tabPages[i] = UI.Rect(TabNames[i] + " Tab", page, Vector2.zero, Vector2.one);
 
-            float y = 0f;
-            AddSectionTitle("SENSITIVITY", PadX, y);
-            y += SectionHeight;
+            // SENSITIVITY: one slider per setting, with room to breathe.
+            float y = TabsBottom + 14f;
             foreach (var setting in GameSettings.All)
             {
                 AddSlider(setting, y);
-                y += RowHeight;
+                y += SliderRow;
             }
 
-            y += 8f;
-            AddSectionTitle("CONTROLS", PadX, y);
-            AddSectionTitle("KEYBOARD", KeysX, y);
-            AddSectionTitle("CONTROLLER", ControllerX, y);
-            y += SectionHeight;
+            // CONTROLS: every mechanic with its keyboard and controller input, all on one screen.
+            y = TabsBottom + 3f;
+            var mappings = tabPages[Controls];
+            AddColumnTitle(mappings, "MECHANIC", PadX, y);
+            AddColumnTitle(mappings, "KEYBOARD", KeysX, y);
+            AddColumnTitle(mappings, "CONTROLLER", ControllerX, y);
+            y += 14f;
             foreach (var mechanic in ControlBindings.All)
             {
                 AddMapping(mechanic, y);
-                y += RowHeight;
+                y += MappingRow;
             }
-            contentHeight = y;
-            content.sizeDelta = new Vector2(0f, contentHeight);
 
-            var thumb = UI.Rect("Scroll Bar", page, new Vector2(0f, 1f), new Vector2(0f, 1f));
-            scrollThumb = thumb.gameObject.AddComponent<Image>();
-            scrollThumb.color = Palette.AmberDim;
-            scrollThumb.raycastTarget = false;
-
-            // These stay put below the list.
-            const float buttonY = ListBottom + 5f;
-            AddButton("RESET TO DEFAULTS", PadX - 6f, buttonY, 230f, RowHeight, () =>
+            // On every tab, along the bottom.
+            AddButton("RESET TAB TO DEFAULTS", PadX - 6f, ButtonY, 230f, ButtonHeight, () =>
             {
-                GameSettings.ResetAll();
-                ControlBindings.ResetAll();
+                if (tab == Sensitivity) GameSettings.ResetAll();
+                else ControlBindings.ResetAll();
                 Refresh();
             });
-            AddButton("BACK", PadX + 236f, buttonY, 110f, RowHeight, Close);
+            AddButton("BACK", PadX + 236f, ButtonY, 110f, ButtonHeight, Close);
+            if (mainMenu != null)
+                AddButton("MAIN MENU", PadX + 352f, ButtonY, 120f, ButtonHeight, () =>
+                {
+                    Close();
+                    mainMenu();
+                });
 
-            StartMenu.Line(page, "Hint", "UP / DOWN SELECT · LEFT / RIGHT ADJUST · ENTER / Ⓐ CHANGE · ESC / Ⓑ BACK",
-                Fonts.MonoRegular, 11f, Palette.AmberDim, PadX, buttonY + RowHeight + 6f, 16f);
+            hint = StartMenu.Line(page, "Hint", "", Fonts.MonoRegular, 11f, Palette.AmberDim, PadX, ButtonY + ButtonHeight + 6f, 16f);
+            ShowTab(Sensitivity);
         }
 
-        void AddSectionTitle(string text, float x, float y)
+        /// <summary>The two tab names, under the heading. Selecting the bar and pressing left or right switches tabs; so does clicking a name.</summary>
+        void BuildTabBar()
         {
-            StartMenu.Line(content, text, text, Fonts.Condensed, 10f, Palette.Blush, x, y, SectionHeight).characterSpacing = 12f;
+            var row = AddRow("", PadX - 6f, TabBarY, Width - 2f * PadX + 12f, TabBarHeight, page);
+            row.isTabBar = true;
+            row.chosen = () => SwitchTab(1);
+
+            float x = 6f;
+            for (int i = 0; i < TabNames.Length; i++)
+            {
+                int index = i;
+                var label = UI.Text(TabNames[i], row.band.rectTransform, TabNames[i], 15f, Palette.Amber);
+                label.font = Fonts.Condensed;
+                label.characterSpacing = 8f;
+                label.alignment = TextAlignmentOptions.MidlineLeft;
+                var rect = label.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+                StartMenu.Anchored(rect, x, 0f, 120f, TabBarHeight);
+                tabLabels[i] = label;
+
+                var underline = StartMenu.Anchored(UI.Rect("Underline", rect, new Vector2(0f, 0f), new Vector2(0f, 0f)), 0f, 0f, label.preferredWidth, 2f);
+                underline.pivot = new Vector2(0f, 0f);
+                underline.anchoredPosition = new Vector2(0f, 2f);
+                tabUnderlines[i] = underline.gameObject.AddComponent<Image>();
+                tabUnderlines[i].raycastTarget = false;
+
+                // Clicking a tab's name opens it.
+                label.raycastTarget = true;
+                var events = label.gameObject.AddComponent<EventTrigger>();
+                AddEvent(events, EventTriggerType.PointerEnter, _ => SelectRow(row));
+                AddEvent(events, EventTriggerType.PointerClick, _ =>
+                {
+                    ShowTab(index);
+                    SelectRow(row);
+                });
+                x += label.preferredWidth + 34f;
+            }
+
+            // A thin rule under the bar, so the tabs read as tabs.
+            var rule = StartMenu.Anchored(UI.Rect("Tab Rule", page, new Vector2(0f, 1f), new Vector2(0f, 1f)), PadX - 6f, TabBarY + TabBarHeight + 1f, Width - 2f * PadX + 12f, 1f);
+            var ruleImage = rule.gameObject.AddComponent<Image>();
+            ruleImage.color = new Color(1f, 0.54f, 0.12f, 0.35f);
+            ruleImage.raycastTarget = false;
+        }
+
+        void AddColumnTitle(RectTransform parent, string text, float x, float y)
+        {
+            StartMenu.Line(parent, text, text, Fonts.Condensed, 10f, Palette.Blush, x, y, 14f).characterSpacing = 12f;
         }
 
         void AddSlider(GameSettings.Setting setting, float y)
         {
-            var row = AddRow(setting.label, PadX - 6f, y, Width - 2f * PadX + 12f, RowHeight, content);
+            var parent = tabPages[Sensitivity];
+            var row = AddRow(setting.label, PadX - 6f, y, Width - 2f * PadX + 12f, SliderRow - 10f, parent);
             row.setting = setting;
-            row.inList = true;
-            row.top = y;
+            row.tab = Sensitivity;
+            float height = SliderRow - 10f;
 
             // An invisible box as tall as the row catches the mouse; the bar you see is a thin strip inside it.
-            var track = StartMenu.Anchored(UI.Rect("Track", row.band.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f)), TrackX - (PadX - 6f), 0f, TrackWidth, RowHeight, middle: true);
+            var track = StartMenu.Anchored(UI.Rect("Track", row.band.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f)), TrackX - (PadX - 6f), 0f, TrackWidth, height, middle: true);
             track.gameObject.AddComponent<Image>().color = Color.clear;
             var strip = UI.Rect("Bar", track, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f));
             strip.sizeDelta = new Vector2(0f, 7f);
@@ -371,7 +442,7 @@ namespace SpaceCowboy
             row.fill = fill.gameObject.AddComponent<Image>();
             row.fill.raycastTarget = false;
 
-            row.value = StartMenu.Line(content, setting.label + " Value", "", Fonts.Lcd, 17f, Palette.TealGlow, ValueX, y, RowHeight);
+            row.value = StartMenu.Line(parent, setting.label + " Value", "", Fonts.Lcd, 17f, Palette.TealGlow, ValueX, y, height);
 
             void SetFromPointer(BaseEventData data)
             {
@@ -388,13 +459,13 @@ namespace SpaceCowboy
 
         void AddMapping(ControlBindings.Mechanic mechanic, float y)
         {
-            var row = AddRow(mechanic.label, PadX - 6f, y, Width - 2f * PadX + 12f, RowHeight, content);
+            var parent = tabPages[Controls];
+            var row = AddRow(mechanic.label, PadX - 6f, y, Width - 2f * PadX + 12f, MappingRow, parent);
             row.mechanic = mechanic;
-            row.inList = true;
-            row.top = y;
+            row.tab = Controls;
             row.chosen = () => StartRebind(mechanic);
-            row.keys = StartMenu.Line(content, mechanic.label + " Key", "", Fonts.Lcd, 15f, Palette.TealGlow, KeysX, y, RowHeight);
-            row.controller = StartMenu.Line(content, mechanic.label + " Controller", "", Fonts.Lcd, 15f, Palette.TealGlow, ControllerX, y, RowHeight);
+            row.keys = StartMenu.Line(parent, mechanic.label + " Key", "", Fonts.Lcd, 14f, Palette.TealGlow, KeysX, y, MappingRow);
+            row.controller = StartMenu.Line(parent, mechanic.label + " Controller", "", Fonts.Lcd, 14f, Palette.TealGlow, ControllerX, y, MappingRow);
             AddEvent(row.events, EventTriggerType.PointerClick, _ => row.chosen());
         }
 
@@ -425,14 +496,15 @@ namespace SpaceCowboy
 
         void SelectRow(Row row)
         {
-            if (IsOpen) Select(rows.IndexOf(row));
+            int index = visible.IndexOf(row);
+            if (IsOpen && rebinding == null && index >= 0) Select(index);
         }
 
         void BuildRebindBox()
         {
             // A solid box over the whole page, which also stops the mouse reaching the list behind it.
             rebindBox = UI.Rect("Change Control", page, Vector2.zero, Vector2.one);
-            rebindBox.gameObject.AddComponent<Image>().color = new Color(0.03f, 0.03f, 0.03f, 1f);
+            rebindBox.gameObject.AddComponent<Image>().color = Palette.Crt;
 
             StartMenu.Line(rebindBox, "Title", "CHANGE CONTROL", Fonts.Condensed, 12f, Palette.Blush, PadX, 62f, 16f).characterSpacing = 12f;
             rebindName = StartMenu.Line(rebindBox, "Mechanic", "", Fonts.Condensed, 36f, Palette.Yellow, PadX, 82f, 44f);

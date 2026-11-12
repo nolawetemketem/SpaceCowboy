@@ -22,6 +22,7 @@ namespace SpaceCowboy
             direction = heading;
             distanceLeft = from.range;
             transform.SetPositionAndRotation(position, Quaternion.LookRotation(heading));
+            Stretch();
             gameObject.SetActive(true);
         }
 
@@ -40,11 +41,20 @@ namespace SpaceCowboy
             }
             transform.position += direction * step;
             distanceLeft -= step;
+            Stretch();
             if (distanceLeft <= 0f) weapon.Return(this);
+        }
+
+        /// <summary>The bolt grows out of the barrel to its full length, instead of starting with its tail inside the ship.</summary>
+        void Stretch()
+        {
+            float travelled = weapon.range - distanceLeft;
+            transform.localScale = new Vector3(1f, 1f, Mathf.Clamp(travelled, 0.5f, weapon.bulletLength));
         }
 
         void Hit(RaycastHit hit)
         {
+            weapon.ShowImpact(hit.point, hit.normal);
             var target = hit.collider.GetComponentInParent<Damageable>();
             if (target && !target.IsDead)
             {

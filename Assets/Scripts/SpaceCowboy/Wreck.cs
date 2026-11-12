@@ -50,6 +50,18 @@ namespace SpaceCowboy
         Material hologram;
         float radius, age, waitAtEnd;
 
+        /// <summary>
+        /// Load what an explosion needs (its shaders and the flash's sphere) while the game loads,
+        /// instead of the moment something first blows up.
+        /// </summary>
+        public static void Prewarm()
+        {
+            var flash = Palette.Shape(PrimitiveType.Sphere, "Prewarm", null, Vector3.zero, Vector3.zero, Palette.Unlit(Color.clear));
+            Destroy(flash.GetComponent<Renderer>().sharedMaterial);
+            Destroy(flash);
+            Destroy(Palette.Hologram(Color.clear));
+        }
+
         /// <summary>Blow these parts apart. finished is called once the last piece has disintegrated.</summary>
         public static Wreck Create(ShipDestruction ship, List<Renderer> parts, Vector3 centre, float radius, Vector3 shipVelocity, Action finished)
         {
@@ -88,11 +100,10 @@ namespace SpaceCowboy
             for (int i = 0; i < 4; i++)
                 AddFlash(centre + UnityEngine.Random.insideUnitSphere * radius, radius * UnityEngine.Random.Range(0.9f, 1.6f), 0.2f, UnityEngine.Random.Range(0.05f, 0.3f));
 
-            for (int i = 0; i < 70; i++)
+            for (int i = 0; i < 110; i++)
             {
                 Vector3 velocity = UnityEngine.Random.onUnitSphere * (radius * UnityEngine.Random.Range(3f, 13f)) + shipVelocity * 0.5f;
-                Color color = Color.Lerp(Palette.Amber, Color.white, UnityEngine.Random.value);
-                ShipFx.Emit(centre, velocity, radius * UnityEngine.Random.Range(0.05f, 0.14f), UnityEngine.Random.Range(0.35f, 0.95f), color);
+                ShipFx.Emit(centre, velocity, radius * UnityEngine.Random.Range(0.04f, 0.1f), UnityEngine.Random.Range(0.35f, 0.95f), ShipFx.Spark());
             }
         }
 
@@ -231,7 +242,7 @@ namespace SpaceCowboy
                 if (piece.moteTimer <= 0f)
                 {
                     piece.moteTimer = 0.05f;
-                    ShipFx.Emit(piece.transform.position, Vector3.zero, radius * 0.07f, 0.4f, Palette.Amber);
+                    ShipFx.Emit(piece.transform.position, UnityEngine.Random.insideUnitSphere * radius, radius * 0.05f, 0.4f, ShipFx.Spark());
                 }
             }
             if (age > OutOfTimeSeconds) StartDissolving(piece);
