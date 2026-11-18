@@ -10,6 +10,7 @@ namespace SpaceCowboy
     /// Day and night (ported from the web game's palette.ts). Day is the scene as you built it: its sun
     /// and sky are remembered when the game starts. Night is the web game's deep purple sky with a dim,
     /// cool moon. The start menu's TIME OF DAY option switches it; in Auto it follows the clock, live.
+    /// The haze, bloom and glare that go with each are the Atmosphere's (on the same object).
     /// </summary>
     public class TimeOfDay : MonoBehaviour
     {
@@ -35,16 +36,26 @@ namespace SpaceCowboy
         [Tooltip("The way the moonlight travels (from the sky toward the ground).")]
         public Vector3 moonDirection = new Vector3(-20f, -40f, -25f);
 
-        [Header("Haze")]
-        [Tooltip("The ground fades into the horizon color between these distances, like the web game's fog.")]
-        public bool fog = true;
-        public float fogStart = 288f;
-        public float fogEnd = 1216f;
-
         const int DayStart = 6, DayEnd = 18;
         const float ClockCheckSeconds = 30f;
 
         public bool IsNight { get; private set; }
+
+        /// <summary>The setting this scene was built with. The player's choice (from Settings) is saved separately.</summary>
+        public TimeOfDaySetting Default { get; private set; }
+        const string SaveKey = "SpaceCowboy.TimeOfDay";
+
+        /// <summary>The player picked this in Settings: use it, and remember it next time (unless it's the default).</summary>
+        public void Choose(TimeOfDaySetting value)
+        {
+            if (value == Default) PlayerPrefs.DeleteKey(SaveKey);
+            else PlayerPrefs.SetInt(SaveKey, (int)value);
+            Set(value);
+        }
+
+        /// <summary>The setting's name as shown in Settings.</summary>
+        public static string Name(TimeOfDaySetting value) =>
+            value switch { TimeOfDaySetting.Day => "DAY", TimeOfDaySetting.Night => "NIGHT", _ => "AUTO (CLOCK)" };
 
         /// <summary>
         /// The web game's sun and moon directions are given relative to the field (its +Z points at goal A).
@@ -60,9 +71,12 @@ namespace SpaceCowboy
         Material sky;
         Color dayTop, dayMid, dayHorizon;
         float untilClockCheck;
+        Atmosphere atmosphere;
 
         void Awake()
         {
+            atmosphere = GetComponent<Atmosphere>();
+            if (!atmosphere) atmosphere = gameObject.AddComponent<Atmosphere>();
             if (!sun) sun = RenderSettings.sun;
             if (sun)
             {
@@ -80,6 +94,8 @@ namespace SpaceCowboy
                 dayMid = sky.GetColor("_Mid");
                 dayHorizon = sky.GetColor("_Horizon");
             }
+            Default = setting;
+            if (PlayerPrefs.HasKey(SaveKey)) setting = (TimeOfDaySetting)Mathf.Clamp(PlayerPrefs.GetInt(SaveKey), 0, 2);
             Set(setting);
         }
 
@@ -132,20 +148,9 @@ namespace SpaceCowboy
                 sun.color = night ? moonColor : dayColor;
                 sun.intensity = night ? moonIntensity : dayIntensity;
             }
-            if (fog)
-            {
-                RenderSettings.fog = true;
-                RenderSettings.fogMode = FogMode.Linear;
-                RenderSettings.fogStartDistance = fogStart;
-                RenderSettings.fogEndDistance = fogEnd;
-                RenderSettings.fogColor = night ? nightHorizon : (sky ? dayHorizon : RenderSettings.fogColor);
-            }
-            if (sky)
-            {
-                sky.SetColor("_Top", night ? nightSkyTop : dayTop);
-                sky.SetColor("_Mid", night ? nightSkyMid : dayMid);
-                sky.SetColor("_Horizon", night ? nightHorizon : dayHorizon);
-            }
+            // The sky's colors for this time of day; the Atmosphere lays the haze over them (and sets the fog).
+            Color horizon = night ? nightHorizon : sky ? dayHorizon : RenderSettings.fogColor;
+            atmosphere.Apply(night, sky, night ? nightSkyTop : dayTop, night ? nightSkyMid : dayMid, horizon);
         }
     }
 }

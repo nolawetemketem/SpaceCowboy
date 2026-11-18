@@ -30,13 +30,17 @@ namespace SpaceCowboy
 
         // One-shot presses wait here until something uses them. Physics doesn't run every frame,
         // so a press read on a frame with no FixedUpdate would otherwise be lost.
-        bool boost, resetCraft;
+        bool boost, resetCraft, special;
+
+        /// <summary>True while the special button is held (the Racer's nitro).</summary>
+        public bool SpecialHeld => ControlBindings.Special.Held;
 
         void Update()
         {
             ReadFlight();
 
             boost |= ControlBindings.Boost.PressedThisFrame;
+            special |= ControlBindings.Special.PressedThisFrame;
             resetCraft |= ControlBindings.ResetShip.PressedThisFrame;
         }
 
@@ -57,6 +61,7 @@ namespace SpaceCowboy
         /// <summary>True once per press: reading it uses it up.</summary>
         public bool TakeBoost() => Take(ref boost);
         public bool TakeResetCraft() => Take(ref resetCraft);
+        public bool TakeSpecial() => Take(ref special);
 
         /// <summary>A flip waiting to start (or to be extended): true once per press, with its direction.</summary>
         public bool TakeFlip(out Vector2Int direction)
@@ -112,7 +117,7 @@ namespace SpaceCowboy
         }
 
         /// <summary>Drop any waiting presses made on the menu.</summary>
-        public void Clear() => boost = resetCraft = flipPressed = false;
+        public void Clear() => boost = special = resetCraft = flipPressed = false;
 
         static bool Take(ref bool pressed)
         {

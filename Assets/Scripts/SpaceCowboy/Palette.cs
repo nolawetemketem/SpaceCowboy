@@ -6,7 +6,6 @@ namespace SpaceCowboy
     public static class Palette
     {
         public static readonly Color Amber = Hex("#ff8a1f");
-        public static readonly Color AmberShip = Hex("#b47133");
         public static readonly Color AmberDim = Hex("#a8521a");
         public static readonly Color Teal = Hex("#3e8f90");
         public static readonly Color TealGlow = Hex("#8fe3dc");
@@ -17,9 +16,9 @@ namespace SpaceCowboy
         public static readonly Color Crt = Hex("#0b0907");    // CRT black
         public static readonly Color LEDGreen = Hex("#5fe704");  // LED phosphor
 
-        public static readonly Color Craft = Hex("#b8b8b8");
-
-        public static readonly Color CraftAccent = Hex("#979595");
+        /// <summary>Your ship: a bold red hull, the strongest color on screen, with gunmetal engines.</summary>
+        public static readonly Color Craft = Hex("#c63a2b");
+        public static readonly Color CraftAccent = Hex("#4d5359");
 
         // Ed's gear (the floating menu screen): beige case, grey metal.
         public static readonly Color Case = Hex("#d9c7a0");
@@ -53,6 +52,17 @@ namespace SpaceCowboy
             var m = new Material(toonShader);
             m.SetColor("_BaseColor", color);
             if (texture) m.SetTexture("_BaseMap", texture);
+            return m;
+        }
+
+        /// <summary>
+        /// A toon material for tech (ships, gadgets): it keeps its full color when the weather bleaches the world,
+        /// so it stands out against the scenery.
+        /// </summary>
+        public static Material TechToon(Color color, Texture texture = null)
+        {
+            var m = Toon(color, texture);
+            m.SetFloat("_Tech", 1f);
             return m;
         }
 

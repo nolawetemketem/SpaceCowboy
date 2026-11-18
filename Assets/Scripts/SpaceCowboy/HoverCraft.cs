@@ -72,6 +72,12 @@ namespace SpaceCowboy
         [Tooltip("Off on the start menu: the craft floats in place and ignores the controls.")]
         public bool controlsEnabled = true;
 
+        /// <summary>While true, the ship pushes as hard and as fast as a boost (the Racer's nitro).</summary>
+        [System.NonSerialized] public bool nitro;
+
+        /// <summary>The ship hit something: the collision, for crashes and ramming.</summary>
+        public event System.Action<Collision> Crashed;
+
         /// <summary>Seconds until boost works again (0 = ready).</summary>
         public float BoostCooldownLeft { get; private set; }
 
@@ -160,6 +166,8 @@ namespace SpaceCowboy
                 boostTimeLeft = boostDuration;
                 BoostCooldownLeft = boostCooldown;
             }
+            if (nitro && boostTimeLeft <= 0f && forwardSpeed < topSpeed * boostTopSpeedMultiplier)
+                thrust += forwardThrust * boostAccelerationMultiplier;
             if (boostTimeLeft > 0f)
             {
                 boostTimeLeft -= dt;
@@ -281,7 +289,23 @@ namespace SpaceCowboy
             Vector3 spin = rb.angularVelocity;
             Vector3 yaw = Vector3.up * spin.y;
             rb.angularVelocity = yaw + (spin - yaw) * crashSpin;
+            Crashed?.Invoke(collision);
         }
+
+        /// <summary>Jump to a spot facing a new way, keeping the ship's speed (a portal).</summary>
+        public void Warp(Vector3 position, Quaternion rotation)
+        {
+            float speed = rb.linearVelocity.magnitude;
+            rb.position = position;
+            rb.rotation = rotation;
+            transform.SetPositionAndRotation(position, rotation);
+            rb.linearVelocity = rotation * Vector3.forward * speed;
+            rb.angularVelocity = Vector3.zero;
+            flipping = false;
+        }
+
+        /// <summary>How fast the ship is going.</summary>
+        public float Speed => rb ? rb.linearVelocity.magnitude : 0f;
 
         /// <summary>Back to a spot, level and still, at normal hover height, with boost ready (Training reset).</summary>
         public void ResetTo(Vector3 position, Quaternion rotation)

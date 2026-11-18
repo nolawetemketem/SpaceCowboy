@@ -212,15 +212,6 @@ namespace SpaceCowboy
     public static class Emoticon
     {
         static readonly Color Ink = Palette.Hex("#111111");
-        static readonly Color Blush = Palette.Hex("#e8423a");
-
-        /// <summary>The whole emoticon, round face and outline included, as a sticker on a clear background.</summary>
-        public static Texture2D Sticker(int size = 256)
-        {
-            var painter = new TexturePainter(size, size, Color.clear);
-            DrawSticker(painter, new Vector2(size / 2f, size / 2f), size);
-            return painter.ToTexture();
-        }
 
         /// <summary>Draw the whole emoticon into another drawing, centred on a point, this many pixels across.</summary>
         public static void DrawSticker(TexturePainter painter, Vector2 centre, float size)
@@ -242,8 +233,8 @@ namespace SpaceCowboy
             painter.Stroke(Q(56, 46, 71, 20, 82, 43), 4.5f * scale, Ink);
 
             // Blush under each eye.
-            painter.Fill(TexturePainter.Ellipse(map(new Vector2(27f, 47.8f)), new Vector2(5.5f, 2.6f) * scale), Blush);
-            painter.Fill(TexturePainter.Ellipse(map(new Vector2(73.5f, 47.8f)), new Vector2(5.5f, 2.6f) * scale), Blush);
+            painter.Fill(TexturePainter.Ellipse(map(new Vector2(27f, 47.8f)), new Vector2(5.5f, 2.6f) * scale), Palette.Blush);
+            painter.Fill(TexturePainter.Ellipse(map(new Vector2(73.5f, 47.8f)), new Vector2(5.5f, 2.6f) * scale), Palette.Blush);
 
             // The grin: M21.7 50.8 Q50 64 80.3 50.3 Q74 79 50 78.6 Q27 78 21.7 50.8 Z
             var mouth = Q(21.7f, 50.8f, 50, 64, 80.3f, 50.3f);

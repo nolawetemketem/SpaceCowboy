@@ -107,6 +107,7 @@ namespace SpaceCowboy
         public static readonly Mechanic Brake = new("Brake", "BRAKE / REVERSE", "c", "leftTrigger");
         public static readonly Mechanic Fire = new("Fire", "FIRE", "enter", "buttonSouth");
         public static readonly Mechanic Boost = new("Boost", "BOOST", "leftShift", "buttonEast");
+        public static readonly Mechanic Special = new("Special", "SPECIAL", "e", "buttonWest");
         public static readonly Mechanic FlipUp = new("FlipUp", "FLIP UP", "downArrow", "rightStick/down");
         public static readonly Mechanic FlipDown = new("FlipDown", "FLIP DOWN", "upArrow", "rightStick/up");
         public static readonly Mechanic FlipLeft = new("FlipLeft", "FLIP LEFT", "leftArrow", "rightStick/left");
@@ -150,7 +151,7 @@ namespace SpaceCowboy
 
         public static readonly Mechanic[] All =
         {
-            NoseUp, NoseDown, TurnLeft, TurnRight, Accelerate, Brake, Fire, Boost,
+            NoseUp, NoseDown, TurnLeft, TurnRight, Accelerate, Brake, Fire, Boost, Special,
             FlipUp, FlipDown, FlipLeft, FlipRight, ResetShip,
         };
 

@@ -103,27 +103,27 @@ namespace SpaceCowboy
             if (target.IsDead) Destroyed?.Invoke(target);
         }
 
-        /// <summary>The target right under the cursor, if there is one in range.</summary>
-        public Damageable AimTarget =>
-            Projectile.Cast(Centre, transform.forward, range, body, out var hit) ? hit.collider.GetComponentInParent<Damageable>() : null;
-
-        /// <summary>Where shots are headed: the first thing straight ahead of the nose, or the end of their range.</summary>
-        public Vector3 AimPoint
+        /// <summary>
+        /// Where shots are headed: the first thing straight ahead of the nose, or the end of their range.
+        /// target is what's there, if it can be shot (the HUD turns the cursor red over it).
+        /// </summary>
+        public Vector3 Aim(out Damageable target)
         {
-            get
+            Vector3 from = Centre;
+            target = null;
+            float distance = range;
+            if (Projectile.Cast(from, transform.forward, range, body, out var hit))
             {
-                Vector3 from = Centre;
-                float distance = Projectile.Cast(from, transform.forward, range, body, out var hit)
-                    ? Mathf.Max(hit.distance, MinAimDistance)
-                    : range;
-                return from + transform.forward * distance;
+                distance = Mathf.Max(hit.distance, MinAimDistance);
+                target = hit.collider.GetComponentInParent<Damageable>();
             }
+            return from + transform.forward * distance;
         }
 
         void Fire()
         {
             Vector3 muzzle = NextMuzzle();
-            Vector3 direction = (AimPoint - muzzle).normalized;
+            Vector3 direction = (Aim(out _) - muzzle).normalized;
             Vector2 miss = Random.insideUnitCircle * Mathf.Tan(spread * Mathf.Deg2Rad);
             direction = (direction + transform.right * miss.x + transform.up * miss.y).normalized;
 
@@ -195,7 +195,7 @@ namespace SpaceCowboy
         static Mesh boltMesh;
 
         /// <summary>Four corners from the tail (z = -1) to the head (z = 0). The laser shader builds the camera-facing card from them.</summary>
-        static Mesh BoltMesh()
+        public static Mesh BoltMesh()
         {
             if (boltMesh) return boltMesh;
             boltMesh = new Mesh { name = "Laser Bolt" };

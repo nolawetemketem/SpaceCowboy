@@ -22,15 +22,16 @@ namespace SpaceCowboy
         const float TrackX = 230f, TrackWidth = 205f, ValueX = 447f;
         const float KeysX = 215f, ControllerX = 355f;
         const float TabBarY = 46f, TabBarHeight = 22f, TabsBottom = 72f;
-        const float SliderRow = 32f, MappingRow = 15.5f, ButtonY = 301f, ButtonHeight = 18f;
+        const float SliderRow = 32f, MappingRow = 14.6f, ButtonY = 301f, ButtonHeight = 18f;
         const float FirstRepeatSeconds = 0.3f, RepeatSeconds = 0.06f;
 
-        const int Sensitivity = 0, Controls = 1, OnEveryTab = -1;
-        static readonly string[] TabNames = { "SENSITIVITY", "CONTROLS" };
+        const int Sensitivity = 0, Controls = 1, GameTab = 2, OnEveryTab = -1;
+        static readonly string[] TabNames = { "SENSITIVITY", "CONTROLS", "GAME" };
         static readonly string[] TabHints =
         {
             "↑↓ SELECT · LEFT / RIGHT ADJUST · TAB / LB / RB TABS · ESC / Ⓑ BACK",
             "↑↓ SELECT · ENTER / Ⓐ CHANGE · TAB / LB / RB TABS · ESC / Ⓑ BACK",
+            "↑↓ SELECT · LEFT / RIGHT CHANGE · TAB / LB / RB TABS · ESC / Ⓑ BACK",
         };
 
         class Row
@@ -40,6 +41,8 @@ namespace SpaceCowboy
             public GameSettings.Setting setting; // sliders only
             public ControlBindings.Mechanic mechanic; // mapping rows only
             public Action chosen;
+            public Action<int> cycle;          // option rows: step through the choices (-1 or 1)
+            public Func<string> currentChoice; // option rows: the choice to show
             public EventTrigger events;
             public int tab = OnEveryTab;
             public bool isTabBar;
@@ -50,9 +53,9 @@ namespace SpaceCowboy
         public bool IsOpen { get; private set; }
 
         readonly RectTransform page;
-        readonly RectTransform[] tabPages = new RectTransform[2];
-        readonly TextMeshProUGUI[] tabLabels = new TextMeshProUGUI[2];
-        readonly Image[] tabUnderlines = new Image[2];
+        readonly RectTransform[] tabPages = new RectTransform[3];
+        readonly TextMeshProUGUI[] tabLabels = new TextMeshProUGUI[3];
+        readonly Image[] tabUnderlines = new Image[3];
         readonly List<Row> rows = new();
         readonly List<Row> visible = new(); // the tab bar, the current tab's rows, then the buttons
         TextMeshProUGUI hint;
@@ -74,11 +77,14 @@ namespace SpaceCowboy
         bool hasNewInput;
 
         readonly Action mainMenu;
+        readonly TimeOfDay time;
 
-        /// <summary>Give mainMenu to add a MAIN MENU button (in Training); leave it out on the start menu itself.</summary>
-        public ControlsPanel(RectTransform parent, Action mainMenu = null)
+        /// <summary>Give mainMenu to add a MAIN MENU button (in Training); leave it out on the start menu itself.
+        /// time is the scene's TimeOfDay, for the GAME tab's Time of Day option.</summary>
+        public ControlsPanel(RectTransform parent, Action mainMenu = null, TimeOfDay time = null)
         {
             this.mainMenu = mainMenu;
+            this.time = time;
             page = UI.Rect("Settings", parent, Vector2.zero, Vector2.one);
             BuildPage();
             BuildRebindBox();
@@ -181,7 +187,14 @@ namespace SpaceCowboy
                     SwitchTab(direction);
                     return;
                 }
+                if (visible[selected].cycle != null)
+                {
+                    visible[selected].cycle(direction);
+                    Show(visible[selected]);
+                    return;
+                }
             }
+            if (visible[selected].cycle != null) return; // options step once per press
             var setting = visible[selected].setting;
             if (setting == null) return;
             setting.Value += GameSettings.Setting.Step * direction;
@@ -221,6 +234,7 @@ namespace SpaceCowboy
                     row.keys.color = on ? Palette.Crt : Palette.TealGlow;
                     row.controller.color = on ? Palette.Crt : Palette.TealGlow;
                 }
+                if (row.currentChoice != null) row.value.color = on ? Palette.Crt : Palette.TealGlow;
                 if (row.setting == null) continue;
                 row.value.color = on ? Palette.Crt : Palette.TealGlow;
                 row.track.color = on ? new Color(0f, 0f, 0f, 0.45f) : new Color(1f, 0.54f, 0.12f, 0.18f);
@@ -259,6 +273,7 @@ namespace SpaceCowboy
                 row.keys.text = row.mechanic.KeyName;
                 row.controller.text = row.mechanic.ControllerName;
             }
+            if (row.currentChoice != null) row.value.text = $"‹ {row.currentChoice()} ›";
         }
 
         // --- Choosing a new input -----------------------------------------------------------------
@@ -354,11 +369,19 @@ namespace SpaceCowboy
                 y += MappingRow;
             }
 
+            // GAME: options for the game itself.
+            y = TabsBottom + 14f;
+            if (time)
+                AddOption("TIME OF DAY", y,
+                    by => time.Choose((TimeOfDaySetting)(((int)time.setting + by + 3) % 3)),
+                    () => TimeOfDay.Name(time.setting));
+
             // On every tab, along the bottom.
             AddButton("RESET TAB TO DEFAULTS", PadX - 6f, ButtonY, 230f, ButtonHeight, () =>
             {
                 if (tab == Sensitivity) GameSettings.ResetAll();
-                else ControlBindings.ResetAll();
+                else if (tab == Controls) ControlBindings.ResetAll();
+                else if (time) time.Choose(time.Default);
                 Refresh();
             });
             AddButton("BACK", PadX + 236f, ButtonY, 110f, ButtonHeight, Close);
@@ -402,8 +425,8 @@ namespace SpaceCowboy
                 // Clicking a tab's name opens it.
                 label.raycastTarget = true;
                 var events = label.gameObject.AddComponent<EventTrigger>();
-                AddEvent(events, EventTriggerType.PointerEnter, _ => SelectRow(row));
-                AddEvent(events, EventTriggerType.PointerClick, _ =>
+                UI.On(events, EventTriggerType.PointerEnter, _ => SelectRow(row));
+                UI.On(events, EventTriggerType.PointerClick, _ =>
                 {
                     ShowTab(index);
                     SelectRow(row);
@@ -452,9 +475,27 @@ namespace SpaceCowboy
                 Show(row);
             }
             var events = track.gameObject.AddComponent<EventTrigger>();
-            AddEvent(events, EventTriggerType.PointerEnter, _ => SelectRow(row));
-            AddEvent(events, EventTriggerType.PointerDown, SetFromPointer);
-            AddEvent(events, EventTriggerType.Drag, SetFromPointer);
+            UI.On(events, EventTriggerType.PointerEnter, _ => SelectRow(row));
+            UI.On(events, EventTriggerType.PointerDown, SetFromPointer);
+            UI.On(events, EventTriggerType.Drag, SetFromPointer);
+        }
+
+        /// <summary>A row with a few choices to step through with left and right, like Time of Day.</summary>
+        void AddOption(string label, float y, Action<int> cycle, Func<string> current)
+        {
+            var parent = tabPages[GameTab];
+            float height = SliderRow - 10f;
+            var row = AddRow(label, PadX - 6f, y, Width - 2f * PadX + 12f, height, parent);
+            row.tab = GameTab;
+            row.cycle = cycle;
+            row.currentChoice = current;
+            row.chosen = () =>
+            {
+                cycle(1);
+                Show(row);
+            };
+            row.value = StartMenu.Line(parent, label + " Value", "", Fonts.Lcd, 19f, Palette.TealGlow, TrackX, y, height);
+            UI.On(row.events, EventTriggerType.PointerClick, _ => row.chosen());
         }
 
         void AddMapping(ControlBindings.Mechanic mechanic, float y)
@@ -466,7 +507,7 @@ namespace SpaceCowboy
             row.chosen = () => StartRebind(mechanic);
             row.keys = StartMenu.Line(parent, mechanic.label + " Key", "", Fonts.Lcd, 14f, Palette.TealGlow, KeysX, y, MappingRow);
             row.controller = StartMenu.Line(parent, mechanic.label + " Controller", "", Fonts.Lcd, 14f, Palette.TealGlow, ControllerX, y, MappingRow);
-            AddEvent(row.events, EventTriggerType.PointerClick, _ => row.chosen());
+            UI.On(row.events, EventTriggerType.PointerClick, _ => row.chosen());
         }
 
         void AddButton(string label, float x, float y, float width, float height, Action chosen)
@@ -474,7 +515,7 @@ namespace SpaceCowboy
             var row = AddRow(label, x, y, width, height, page);
             row.chosen = chosen;
             row.label.alignment = TextAlignmentOptions.Midline;
-            AddEvent(row.events, EventTriggerType.PointerClick, _ => chosen());
+            UI.On(row.events, EventTriggerType.PointerClick, _ => chosen());
         }
 
         Row AddRow(string label, float x, float y, float width, float height, RectTransform parent)
@@ -489,7 +530,7 @@ namespace SpaceCowboy
             row.label.alignment = TextAlignmentOptions.MidlineLeft;
 
             row.events = band.gameObject.AddComponent<EventTrigger>();
-            AddEvent(row.events, EventTriggerType.PointerEnter, _ => SelectRow(row));
+            UI.On(row.events, EventTriggerType.PointerEnter, _ => SelectRow(row));
             rows.Add(row);
             return row;
         }
@@ -525,15 +566,9 @@ namespace SpaceCowboy
             var label = UI.Text("Label", rect, text, 14f, textColor);
             label.font = Fonts.Mono;
             label.alignment = TextAlignmentOptions.Midline;
-            AddEvent(rect.gameObject.AddComponent<EventTrigger>(), EventTriggerType.PointerClick, _ => clicked());
+            UI.On(rect.gameObject, EventTriggerType.PointerClick, _ => clicked());
             return rect.gameObject;
         }
 
-        static void AddEvent(EventTrigger trigger, EventTriggerType type, Action<BaseEventData> action)
-        {
-            var entry = new EventTrigger.Entry { eventID = type };
-            entry.callback.AddListener(data => action(data));
-            trigger.triggers.Add(entry);
-        }
     }
 }

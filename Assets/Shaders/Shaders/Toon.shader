@@ -16,6 +16,7 @@ Shader "SpaceCowboy/Toon"
         _BandLit ("Lit Band (N·L above)", Range(-1, 1)) = 0.5
         _BandMid ("Mid Band (N·L above)", Range(-1, 1)) = 0
         [Toggle(_VERTEX_COLORS)] _UseVertexColors ("Use Vertex Colors (desert ground)", Float) = 0
+        [Toggle] _Tech ("Tech (keeps its full color in the haze)", Float) = 0
     }
 
     SubShader
@@ -34,6 +35,7 @@ Shader "SpaceCowboy/Toon"
             half _LightStrength;
             half _BandLit;
             half _BandMid;
+            half _Tech;
         CBUFFER_END
 
         TEXTURE2D(_BaseMap);
@@ -41,6 +43,10 @@ Shader "SpaceCowboy/Toon"
 
         // Set for every toon material at once by the game's TimeOfDay: 0 = day, 1 = night.
         float _ToonNight;
+        // Set by the game's Atmosphere (the weather): how sun-bleached everything that isn't tech is (0 = full color),
+        // and how much the haze lifts the shadows (light scattered by heat and humidity fills them in).
+        float _WorldMute;
+        float _ShadowLift;
         ENDHLSL
 
         Pass
@@ -122,6 +128,13 @@ Shader "SpaceCowboy/Toon"
                 half3 albedo = _BaseColor.rgb * SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * i.color;
                 half3 sunlight = sun.color * (0.5 * _LightStrength);
                 half3 shadowTint = lerp(_ShadowColor.rgb, _NightShadowColor.rgb, _ToonNight);
+                shadowTint = lerp(shadowTint, half3(1, 1, 1), _ShadowLift);
+
+                // 5. Sun-bleached: anything that isn't tech (ground, rock, buildings, plants) loses some of its color,
+                //    like everything on a hot, hazy afternoon. Ships and gadgets (_Tech) keep theirs, so they read.
+                half grey = dot(albedo, half3(0.299, 0.587, 0.114));
+                albedo = lerp(albedo, grey.xxx, _WorldMute * (1.0 - _Tech));
+
                 half3 color = albedo * lerp(shadowTint, max(sunlight, shadowTint), band);
 
                 color = MixFog(color, i.fogFactor);

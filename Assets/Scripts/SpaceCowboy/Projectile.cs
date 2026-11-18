@@ -56,7 +56,7 @@ namespace SpaceCowboy
         {
             weapon.ShowImpact(hit.point, hit.normal);
             var target = hit.collider.GetComponentInParent<Damageable>();
-            if (target && !target.IsDead)
+            if (target && !target.IsDead && !target.SameTeamAs(weapon.gameObject))
             {
                 target.TakeDamage(weapon.damage, weapon.gameObject);
                 weapon.ReportHit(target);

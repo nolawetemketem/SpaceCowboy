@@ -103,13 +103,18 @@ namespace SpaceCowboy
             transform.rotation = Quaternion.LookRotation(lookAt - at, cameraUp);
         }
 
-        /// <summary>Lift a camera spot out of the desert floor if a climb has swung it underground.</summary>
+        /// <summary>Lift a camera spot out of the ground if a climb has swung it underground. Works on any map.</summary>
         Vector3 AboveGround(Vector3 at)
         {
+            // The desert can answer exactly without a ray; any other map's ground is found by looking straight down.
             if (!ground) ground = FindFirstObjectByType<DesertTerrain>();
-            if (!ground) return at;
-            Vector3 local = ground.transform.InverseTransformPoint(at);
-            float floor = ground.transform.TransformPoint(new Vector3(local.x, ground.LocalHeightAt(local.x, local.z), local.z)).y;
+            float floor;
+            if (ground)
+            {
+                Vector3 local = ground.transform.InverseTransformPoint(at);
+                floor = ground.transform.TransformPoint(new Vector3(local.x, ground.LocalHeightAt(local.x, local.z), local.z)).y;
+            }
+            else floor = ArenaMap.GroundBelow(at).y;
             at.y = Mathf.Max(at.y, floor + groundClearance);
             return at;
         }

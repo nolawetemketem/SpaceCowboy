@@ -1,0 +1,4 @@
+Desert Training|plain
+Hollow Ring|flags
+Sky Island|flags
+Underground City|flags

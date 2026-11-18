@@ -4,6 +4,21 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Prototype.unity
+    guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Maps/Desert Training.unity
+    guid: 55b3d6664e8634b80812bcd5a5e5d0a7
+  - enabled: 1
+    path: Assets/Maps/Hollow Ring.unity
+    guid: d254468581138433abf200601ea935f8
+  - enabled: 1
+    path: Assets/Maps/Sky Island.unity
+    guid: 6b156757b2cf34a948b526aa0401ba8e
+  - enabled: 1
+    path: Assets/Maps/Underground City.unity
+    guid: 00cddba76e7154adf916a721552432dc
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

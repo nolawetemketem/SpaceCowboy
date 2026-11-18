@@ -41,13 +41,14 @@ namespace SpaceCowboy
         public const float RailZ = 165f, RailHeight = 2f, RailHalfWidth = 6f;
 
         // Ground colors: variety comes from where you are, not one flat sand.
-        static readonly Color Sand = Palette.Hex("#c98b4f");
-        static readonly Color SandPale = Palette.Hex("#ddb27a");  // dune crests, bleached by the sun
-        static readonly Color SandShade = Palette.Hex("#b47a49"); // dune hollows
-        static readonly Color Worn = Palette.Hex("#a87245");      // the old, trampled field
-        static readonly Color Rock = Palette.Hex("#9b5434");      // steep mesa sides
-        static readonly Color MesaTop = Palette.Hex("#b9773f");
-        static readonly Color Railbed = Palette.Hex("#8f6a4c");
+        // Mars dust: red ochre and rust rather than yellow sand.
+        static readonly Color Sand = Palette.Hex("#b86a45");
+        static readonly Color SandPale = Palette.Hex("#d39a74");  // dune crests, bleached by the sun
+        static readonly Color SandShade = Palette.Hex("#9c5638"); // dune hollows
+        static readonly Color Worn = Palette.Hex("#a2603f");      // the old, trampled field
+        static readonly Color Rock = Palette.Hex("#8c3f2a");      // steep mesa sides, rusty
+        static readonly Color MesaTop = Palette.Hex("#b0613d");
+        static readonly Color Railbed = Palette.Hex("#85594a");
 
         Mesh mesh;
 

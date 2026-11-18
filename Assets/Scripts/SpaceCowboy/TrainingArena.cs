@@ -39,9 +39,9 @@ namespace SpaceCowboy
         /// <summary>The middle of the field, on the ground.</summary>
         public Vector3 Centre => OnGround(0f, 0f);
         public Vector3 CraftStartPosition => OnGround(0f, -craftStartDistance) + Vector3.up * craftStartHeight;
-        public Quaternion CraftStartRotation => Quaternion.LookRotation(Flat(transform.forward), Vector3.up);
+        public Quaternion CraftStartRotation => ArenaMap.Level(transform.forward);
 
-        /// <summary>Build the goals and the field lines. Called once by the game.</summary>
+        /// <summary>Build the goals and the field lines. Called once by the ArenaMap on this object, as its map loads.</summary>
         public void Build()
         {
             BuildGoal(0, 1f, goalAColor);
@@ -140,12 +140,6 @@ namespace SpaceCowboy
         }
 
         float LocalGroundY(float x, float z) => transform.InverseTransformPoint(OnGround(x, z)).y;
-
-        static Vector3 Flat(Vector3 v)
-        {
-            v.y = 0f;
-            return v.sqrMagnitude > 1e-4f ? v.normalized : Vector3.forward;
-        }
 
         void OnDrawGizmos()
         {

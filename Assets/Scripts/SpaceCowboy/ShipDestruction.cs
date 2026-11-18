@@ -43,8 +43,6 @@ namespace SpaceCowboy
 
         static readonly int RevealId = Shader.PropertyToID("_Reveal");
         static readonly int SweepAmountId = Shader.PropertyToID("_SweepAmount");
-        static readonly int SweepBottomId = Shader.PropertyToID("_SweepBottom");
-        static readonly int SweepHeightId = Shader.PropertyToID("_SweepHeight");
         static readonly int HoloColorId = Shader.PropertyToID("_HoloColor");
         static readonly int ProgressId = Shader.PropertyToID("_Progress");
         static readonly int FadeId = Shader.PropertyToID("_Fade");
@@ -136,7 +134,7 @@ namespace SpaceCowboy
         [ContextMenu("Destroy this ship (test)")]
         public void DestroyForTest()
         {
-            if (Application.isPlaying && !Wrecked) health.TakeDamage(health.Health, gameObject);
+            if (Application.isPlaying && !Wrecked) health.TakeDamage(health.Health + health.Shield, gameObject); // through any shield too
         }
 
         void Explode()

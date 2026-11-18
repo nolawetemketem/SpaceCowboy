@@ -1,11 +1,18 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace SpaceCowboy
 {
     /// <summary>
-    /// The on-screen overlay during play: the aim cursor, the hit marker and the count of targets destroyed.
+    /// The on-screen overlay during play. Kept to a minimum, with as little text as possible:
+    ///   the aim cursor (red when your shots will hit), with the hit marker flashing on it (red when something's destroyed);
+    ///   the streak ring around the cursor: it fills a third with each kill in a row, glows yellow when your special is
+    ///     ready, and runs down while the special is going;
+    ///   a hollow diamond on where to go next (capture the flag), pinned to the screen's edge when it's behind you;
+    ///   the screen's edges flashing red when you're hit;
+    ///   the score and the clock at the top, as bare amber numbers (yours bright, theirs dim).
     /// Hidden on the menu. Sizes are on a 1280 × 720 reference screen.
     /// </summary>
     [DefaultExecutionOrder(100)] // after the camera has moved, so the aim cursor sits exactly on its spot
@@ -13,7 +20,8 @@ namespace SpaceCowboy
     {
         GameObject root;
 
-        public static Hud Create()
+        /// <summary>time is the scene's TimeOfDay, for the settings panel's GAME tab.</summary>
+        public static Hud Create(TimeOfDay time)
         {
             var go = new GameObject("HUD");
             var canvas = go.AddComponent<Canvas>();
@@ -24,14 +32,16 @@ namespace SpaceCowboy
             scaler.referenceResolution = new Vector2(1280f, 720f);
             scaler.matchWidthOrHeight = 0.5f;
             go.AddComponent<GraphicRaycaster>(); // so the mouse can use the settings panel
-            return go.AddComponent<Hud>();
+            var hud = go.AddComponent<Hud>();
+            hud.BuildControlsPanel(time); // while the overlay is still showing, so its text can be measured
+            hud.Results = new ResultsPanel(hud.root.transform);
+            hud.Show(false);
+            return hud;
         }
 
         void Awake()
         {
             root = UI.Rect("Overlay", transform, Vector2.zero, Vector2.one).gameObject;
-            BuildControlsPanel();
-            Show(false);
         }
 
         /// <summary>MAIN MENU was chosen on the settings panel.</summary>
@@ -40,7 +50,7 @@ namespace SpaceCowboy
         /// <summary>The controls and settings panel, opened during play. It starts closed.</summary>
         public ControlsPanel Controls { get; private set; }
 
-        void BuildControlsPanel()
+        void BuildControlsPanel(TimeOfDay time)
         {
             // The same battered screen as the start menu: Ed's beige bezel around a black CRT,
             // with scanlines and a vignette over the page.
@@ -55,7 +65,7 @@ namespace SpaceCowboy
             var screen = UI.Rect("Screen", holder, centre, centre);
             screen.sizeDelta = StartMenu.MenuPixels;
             screen.gameObject.AddComponent<Image>().color = Palette.Crt;
-            Controls = new ControlsPanel(screen, () => MainMenuChosen?.Invoke());
+            Controls = new ControlsPanel(screen, () => MainMenuChosen?.Invoke(), time);
             StartMenu.AddScreenEffects(screen);
             holder.gameObject.SetActive(false);
             Controls.Closed += () => holder.gameObject.SetActive(false);
@@ -98,27 +108,284 @@ namespace SpaceCowboy
             hitMarker.raycastTarget = false;
             hitMarker.enabled = false;
 
-            // How many you've destroyed, at the top of the screen. Appears after the first one.
-            kills = UI.Text("X_X ", root.transform, "", 22f, Palette.LEDGreen);
-            kills.font = Fonts.Lcd;
-            kills.alignment = TMPro.TextAlignmentOptions.Top;
-            kills.rectTransform.offsetMax = new Vector2(0f, -18f);
-            kills.text = $"X_X {killCount:00}";
-            kills.enabled = true;
+            // The streak ring: a thin circle around the cursor that fills like a clock hand.
+            var ringRect = UI.Rect("Streak Ring", rect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            ringRect.sizeDelta = new Vector2(64f, 64f);
+            streakRing = ringRect.gameObject.AddComponent<Image>();
+            streakRing.sprite = RingSprite();
+            streakRing.type = Image.Type.Filled;
+            streakRing.fillMethod = Image.FillMethod.Radial360;
+            streakRing.fillOrigin = (int)Image.Origin360.Top;
+            streakRing.fillClockwise = true;
+            streakRing.raycastTarget = false;
+            streakRing.enabled = false;
 
             weapon.LandedHit += _ => ShowHit(Color.white, 0.1f);
-            weapon.Destroyed += _ =>
+            weapon.Destroyed += _ => ShowHit(Palette.Blush, 0.3f);
+        }
+
+        // --- Getting hit ----------------------------------------------------------------------------
+
+        Damageable yourHealth;
+        RawImage hurtGlow;
+        float hurtFlash;
+
+        /// <summary>
+        /// Show your ship's damage without numbers: the screen's edges flash red with each hit, and stay faintly red
+        /// while your health is low.
+        /// </summary>
+        public void TrackHealth(Damageable health)
+        {
+            yourHealth = health;
+            if (!hurtGlow)
             {
-                ShowHit(Palette.Blush, 0.3f);
-                killCount++;
-                kills.text = $"X_X {killCount:00}";
-                // kills.enabled = true;
-            };
+                var rect = UI.Rect("Hurt Glow", root.transform, Vector2.zero, Vector2.one);
+                rect.SetAsFirstSibling(); // under everything else
+                hurtGlow = rect.gameObject.AddComponent<RawImage>();
+                hurtGlow.texture = HurtTexture();
+                hurtGlow.raycastTarget = false;
+                hurtGlow.color = Color.clear;
+            }
+            health.Damaged += (amount, _) => hurtFlash = Mathf.Min(1f, hurtFlash + 0.35f + amount / Mathf.Max(health.maxHealth, 1f));
+        }
+
+        void UpdateHurtGlow()
+        {
+            if (!hurtGlow || !yourHealth) return;
+            hurtFlash = Mathf.Max(0f, hurtFlash - Time.deltaTime * 2.5f);
+            float low = yourHealth.IsDead ? 0f : Mathf.Clamp01(1f - yourHealth.Health / yourHealth.maxHealth);
+            float alpha = Mathf.Max(hurtFlash * 0.8f, low * low * 0.55f);
+            var c = Palette.Blush;
+            c.a = alpha;
+            hurtGlow.color = c;
+            hurtGlow.enabled = alpha > 0.01f;
+        }
+
+        static Texture2D hurtTexture;
+
+        /// <summary>Clear in the middle, solid at the edges.</summary>
+        static Texture2D HurtTexture()
+        {
+            if (hurtTexture) return hurtTexture;
+            var p = new TexturePainter(128, 72, Color.clear);
+            p.Shade((u, v) =>
+            {
+                float d = Mathf.Sqrt(((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f)) * 2f);
+                float a = Mathf.Clamp01((d - 0.55f) / 0.45f);
+                return new Color(1f, 1f, 1f, a * a);
+            });
+            return hurtTexture = p.ToTexture();
+        }
+
+        // --- The streak ring ---------------------------------------------------------------------
+
+        Image streakRing;
+        float ringFill, ringNudge = -1f;
+        Color ringColor;
+        bool ringPulse;
+
+        /// <summary>
+        /// The ring around the cursor: how full (0 to 1), its color, and whether it pulses (special ready).
+        /// fill 0 hides it.
+        /// </summary>
+        public void SetStreakRing(float fill, Color color, bool pulse)
+        {
+            ringFill = fill;
+            ringColor = color;
+            ringPulse = pulse;
+        }
+
+        /// <summary>A quick shake and red flash of the ring: the special isn't ready yet.</summary>
+        public void NudgeStreakRing() => ringNudge = 0f;
+
+        void UpdateStreakRing()
+        {
+            if (!streakRing) return;
+            bool nudging = ringNudge >= 0f;
+            streakRing.enabled = ringFill > 0.001f || nudging;
+            if (!streakRing.enabled) return;
+            Color color = ringColor;
+            if (ringPulse) color.a *= 0.55f + 0.45f * Mathf.Sin(Time.time * 8f) * 0.5f + 0.225f;
+            float scale = ringPulse ? 1f + 0.06f * Mathf.Sin(Time.time * 8f) : 1f;
+            Vector2 shift = Vector2.zero;
+            if (nudging)
+            {
+                ringNudge += Time.deltaTime;
+                float t = ringNudge / 0.35f;
+                shift.x = t >= 1f ? 0f : Mathf.Sin(t * Mathf.PI * 4f) * 5f;
+                color = Color.Lerp(Palette.Blush, color, t);
+                if (ringFill < 0.001f) color.a *= 1f - t; // an empty ring shows itself just for the shake
+                if (t >= 1f) ringNudge = -1f;
+            }
+            streakRing.fillAmount = nudging && ringFill < 0.001f ? 1f : ringFill;
+            streakRing.color = color;
+            streakRing.rectTransform.anchoredPosition = shift;
+            streakRing.rectTransform.localScale = Vector3.one * scale;
+        }
+
+        /// <summary>A thin circle, for the streak ring.</summary>
+        static Sprite RingSprite()
+        {
+            const int size = 128;
+            var p = new TexturePainter(size, size, Color.clear);
+            p.Stroke(TexturePainter.Ellipse(new Vector2(size / 2f, size / 2f), new Vector2(58f, 58f)), 5f, Color.white);
+            return p.ToSprite();
+        }
+
+        // --- Score and clock ------------------------------------------------------------------------
+
+        TextMeshProUGUI score, timer;
+        float scorePunch;
+        bool timerBlinks;
+
+        /// <summary>
+        /// The score at the top: yours, then theirs (the other team, or the best rival in free for all).
+        /// All amber like the rest of the HUD: yours bright, theirs dim. It swells for a moment when it changes.
+        /// </summary>
+        public void ShowScore(int yours, int theirs)
+        {
+            if (!score)
+            {
+                score = UI.Text("Score", root.transform, "", 34f, Color.white);
+                score.font = Fonts.Lcd;
+                score.alignment = TextAlignmentOptions.Top;
+                score.rectTransform.offsetMax = new Vector2(0f, -18f);
+            }
+            string text = $"<color=#{AmberHex}>{yours}</color>  <color=#{AmberDimHex}>{theirs}</color>";
+            score.gameObject.SetActive(true);
+            if (score.text != text && !string.IsNullOrEmpty(score.text)) scorePunch = 0.4f;
+            score.text = text;
+        }
+
+        static readonly string AmberHex = ColorUtility.ToHtmlStringRGB(Palette.Amber);
+        static readonly string AmberDimHex = ColorUtility.ToHtmlStringRGB(Palette.AmberDim);
+
+        /// <summary>The match clock, under the score. Empty hides it. blink: it flashes (sudden death).</summary>
+        public void SetTimer(string text, Color color, bool blink = false)
+        {
+            if (!timer)
+            {
+                timer = UI.Text("Match Clock", root.transform, "", 22f, Palette.Amber);
+                timer.font = Fonts.Lcd;
+                timer.alignment = TextAlignmentOptions.Top;
+                timer.rectTransform.offsetMax = new Vector2(0f, -52f);
+            }
+            timer.text = text;
+            timer.color = color;
+            timerBlinks = blink;
+        }
+
+        void UpdateScoreAndClock()
+        {
+            if (score)
+            {
+                scorePunch = Mathf.Max(0f, scorePunch - Time.deltaTime);
+                score.rectTransform.localScale = Vector3.one * (1f + scorePunch * 0.6f);
+            }
+            if (timer) timer.enabled = !timerBlinks || Time.time % 0.8f < 0.5f;
+        }
+
+        // --- Markers -------------------------------------------------------------------------------
+
+        Image objectiveMarker;
+        Vector3? objectiveSpot;
+        readonly System.Collections.Generic.List<Image> markers = new();
+        static Sprite markerSprite;
+
+        /// <summary>Where to go next (capture the flag): a hollow amber diamond over that spot. null hides it.</summary>
+        public void SetObjective(Vector3? spot)
+        {
+            if (!objectiveMarker)
+            {
+                objectiveMarker = MakeMarker("Objective", 34f);
+                objectiveMarker.color = Palette.Amber;
+            }
+            objectiveSpot = spot;
+        }
+
+        /// <summary>
+        /// Diamonds on screen over these spots, seen through anything (the Spy's special). null clears them.
+        /// Spots behind you are pinned to the edge of the screen, so you know which way to turn.
+        /// </summary>
+        public void SetMarkers(System.Collections.Generic.List<Vector3> spots, Color color)
+        {
+            int count = spots == null || !aimCamera ? 0 : spots.Count;
+            while (markers.Count < count) markers.Add(MakeMarker("Marker", 28f));
+            for (int i = 0; i < markers.Count; i++)
+            {
+                bool on = i < count;
+                markers[i].enabled = on;
+                if (!on) continue;
+                PlaceOver(markers[i], spots[i]);
+                markers[i].color = color;
+            }
+        }
+
+        void UpdateObjective()
+        {
+            if (!objectiveMarker) return;
+            objectiveMarker.enabled = objectiveSpot.HasValue && aimCamera;
+            if (objectiveMarker.enabled) PlaceOver(objectiveMarker, objectiveSpot.Value);
+        }
+
+        Image MakeMarker(string name, float size)
+        {
+            var rect = UI.Rect(name, root.transform, Vector2.zero, Vector2.zero);
+            rect.sizeDelta = new Vector2(size, size);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = MarkerSprite();
+            image.raycastTarget = false;
+            return image;
+        }
+
+        /// <summary>Put a marker over a spot in the world; a spot behind you is pinned to the screen's edge.</summary>
+        void PlaceOver(Image marker, Vector3 spot)
+        {
+            Vector3 screen = aimCamera.WorldToScreenPoint(spot);
+            if (screen.z < 0f) screen = new Vector3(Screen.width - screen.x, screen.y < Screen.height / 2f ? 0f : Screen.height, 0f);
+            screen.x = Mathf.Clamp(screen.x, 20f, Screen.width - 20f);
+            screen.y = Mathf.Clamp(screen.y, 20f, Screen.height - 20f);
+            marker.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
+        }
+
+        /// <summary>A hollow diamond.</summary>
+        static Sprite MarkerSprite()
+        {
+            if (markerSprite) return markerSprite;
+            var p = new TexturePainter(64, 64, Color.clear);
+            p.Fill(p.Polygon(0.5f, 0.05f, 0.95f, 0.5f, 0.5f, 0.95f, 0.05f, 0.5f), Color.white);
+            p.Fill(p.Polygon(0.5f, 0.3f, 0.7f, 0.5f, 0.5f, 0.7f, 0.3f, 0.5f), Color.clear);
+            return markerSprite = p.ToSprite();
+        }
+
+        // --- Matches ---------------------------------------------------------------------------
+
+        /// <summary>The end-of-match screen.</summary>
+        public ResultsPanel Results { get; private set; }
+
+        /// <summary>Clear everything a match put on screen.</summary>
+        public void HideMatch()
+        {
+            if (score) score.gameObject.SetActive(false);
+            if (timer) timer.text = "";
+            objectiveSpot = null;
+            SetStreakRing(0f, Color.white, false);
+            SetMarkers(null, Color.white);
+            Results.Hide();
+        }
+
+        // --- Every frame ---------------------------------------------------------------------------
+
+        void LateUpdate()
+        {
+            UpdateScoreAndClock();
+            UpdateObjective();
+            UpdateStreakRing();
+            UpdateHurtGlow();
+            UpdateAim();
         }
 
         Image hitMarker;
-        TextMeshProUGUI kills;
-        int killCount;
         float hitMarkerLeft;
 
         void ShowHit(Color color, float seconds)
@@ -128,13 +395,14 @@ namespace SpaceCowboy
             hitMarkerLeft = seconds;
         }
 
-        void LateUpdate()
+        /// <summary>The cursor sits where shots will land; it's red when they'll hit something.</summary>
+        void UpdateAim()
         {
             if (!aimCursor || !aimWeapon) return;
-            Vector3 screen = aimCamera.WorldToScreenPoint(aimWeapon.AimPoint);
+            Vector3 screen = aimCamera.WorldToScreenPoint(aimWeapon.Aim(out var target));
             aimCursor.enabled = screen.z > 0f; // mid-flip it can swing behind the camera
             aimCursor.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
-            aimCursor.color = aimWeapon.AimTarget ? Palette.Blush : Palette.LEDGreen; // red when shots will hit something
+            aimCursor.color = target ? Palette.Blush : Palette.LEDGreen;
 
             if (hitMarkerLeft > 0f)
             {
@@ -236,6 +504,25 @@ namespace SpaceCowboy
                 img.color = border;
                 img.raycastTarget = false;
             }
+        }
+
+        /// <summary>Run action when the mouse does this to the object (enters it, clicks it, drags on it...).</summary>
+        public static void On(GameObject target, EventTriggerType type, System.Action<BaseEventData> action)
+        {
+            var trigger = target.GetComponent<EventTrigger>();
+            if (!trigger) trigger = target.AddComponent<EventTrigger>();
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(data => action(data));
+            trigger.triggers.Add(entry);
+        }
+
+        public static void On(Component target, EventTriggerType type, System.Action<BaseEventData> action) => On(target.gameObject, type, action);
+
+        /// <summary>The usual pair for a menu choice: hovering selects it, clicking chooses it.</summary>
+        public static void Choosable(GameObject target, System.Action select, System.Action choose)
+        {
+            On(target, EventTriggerType.PointerEnter, _ => select());
+            On(target, EventTriggerType.PointerClick, _ => choose());
         }
 
         public static TextMeshProUGUI Text(string name, Transform parent, string text, float size, Color color, FontStyles style = FontStyles.Normal)
